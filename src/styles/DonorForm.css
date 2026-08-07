@@ -1,0 +1,414 @@
+.donor-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1B5E3F 0%, #8B4513 100%);
+  padding: 20px;
+}
+
+.donor-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.donor-card.sucesso {
+  text-align: center;
+  padding: 60px 40px;
+}
+
+.sucesso-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  animation: bounce 0.6s ease;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+.donor-card.sucesso h2 {
+  color: #1B5E3F;
+  font-size: 28px;
+  margin-bottom: 15px;
+}
+
+.donor-card.sucesso p {
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.donor-card.sucesso .mensagem-secundaria {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 30px;
+}
+
+.donor-header {
+  background: linear-gradient(135deg, #1B5E3F 0%, #8B4513 100%);
+  color: white;
+  padding: 30px 40px;
+  text-align: center;
+}
+
+.donor-header h1 {
+  color: white;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.donor-header p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.donor-header .donor-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 20px;
+}
+
+.etapas {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.etapa {
+  flex: 1;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: white;
+  border: 2px solid transparent;
+}
+
+.etapa.ativa {
+  background: #D4AF37;
+  color: #1B5E3F;
+  border-color: white;
+}
+
+.etapa.completa {
+  background: rgba(255, 255, 255, 0.3);
+  opacity: 0.6;
+}
+
+.donor-formulario {
+  padding: 40px;
+}
+
+.donor-formulario h3 {
+  color: #1B5E3F;
+  font-size: 18px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #D4AF37;
+  padding-bottom: 10px;
+}
+
+.formulario-grupo {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.formulario-grupo label {
+  font-weight: 600;
+  color: #1B5E3F;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.formulario-grupo input,
+.formulario-grupo select {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.formulario-grupo input:focus,
+.formulario-grupo select:focus {
+  outline: none;
+  border-color: #1B5E3F;
+  box-shadow: 0 0 0 3px rgba(27, 94, 63, 0.1);
+}
+
+.formulario-grupo input:disabled {
+  background-color: #f5f5f5;
+  color: #999;
+}
+
+.cep-input {
+  display: flex;
+  gap: 10px;
+}
+
+.cep-input input {
+  flex: 1;
+}
+
+.cep-input button {
+  padding: 12px 20px;
+  background-color: #D4AF37;
+  color: #1B5E3F;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cep-input button:hover:not(:disabled) {
+  background-color: #c9a030;
+  transform: translateY(-2px);
+}
+
+.cep-input button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alerta {
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.alerta-erro {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-left-color: #dc3545;
+}
+
+.alerta-info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border-left-color: #1B5E3F;
+}
+
+.itens-selecionados {
+  background: #f9f9f9;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.item-selecionado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 4px;
+  border-left: 4px solid #D4AF37;
+  margin-bottom: 10px;
+}
+
+.item-selecionado:last-child {
+  margin-bottom: 0;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.item-info strong {
+  color: #1B5E3F;
+  font-size: 14px;
+}
+
+.item-info span {
+  color: #999;
+  font-size: 12px;
+}
+
+.confirmacao-secao {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #1B5E3F;
+  margin-bottom: 20px;
+}
+
+.confirmacao-secao h4 {
+  color: #1B5E3F;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.confirmacao-secao p {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.item-confirmacao {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-dourado {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: #1B5E3F;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #144530;
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+  padding: 6px 12px;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.btn-dourado {
+  background-color: #D4AF37;
+  color: #1B5E3F;
+}
+
+.btn-dourado:hover {
+  background-color: #c9a030;
+}
+
+@media (max-width: 600px) {
+  .donor-card {
+    margin: 0;
+  }
+
+  .donor-header {
+    padding: 20px;
+  }
+
+  .donor-header h1 {
+    font-size: 20px;
+  }
+
+  .donor-formulario {
+    padding: 20px;
+  }
+
+  .etapas {
+    font-size: 11px;
+  }
+
+  .cep-input {
+    flex-direction: column;
+  }
+
+  .cep-input button {
+    width: 100%;
+  }
+
+  .item-selecionado {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .item-selecionado button {
+    align-self: flex-end;
+  }
+}
+
+/* ----------------------------------------------------- Complementos v2 */
+
+.botao-largo {
+  width: 100%;
+  margin-top: 15px;
+}
+
+.bloco-itens {
+  margin-top: 30px;
+}
+
+.linha-dupla {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.linha-dupla .formulario-grupo {
+  flex: 1;
+  min-width: 130px;
+}
+
+.linha-dupla .campo-uf {
+  flex: 0 0 80px;
+  min-width: 80px;
+}
+
+.btn-mini {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.item-confirmacao small {
+  color: #777;
+  font-weight: 400;
+}
+
+.donor-formulario optgroup {
+  font-weight: 700;
+  color: #1B5E3F;
+}
+
+.mensagem-secundaria {
+  color: #555;
+  line-height: 1.6;
+}

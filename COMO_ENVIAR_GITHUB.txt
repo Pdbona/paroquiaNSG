@@ -1,0 +1,74 @@
+================================================================================
+COMO ENVIAR TODOS OS ARQUIVOS PARA GITHUB
+================================================================================
+
+OPÇÃO 1: Usar o site do GitHub (MAIS FÁCIL - sem linha de comando)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Ir para github.com (já com conta criada)
+
+2. Clicar no + (canto superior direito) → New Repository
+
+3. Preencher:
+   - Repository name: ejc-doacoes
+   - Description: App de coleta de doações para II Encontro de Jovens com Cristo
+   - Public (marcar)
+   - NÃO marcar "Initialize this repository..."
+
+4. Clicar em "Create repository"
+
+5. Na tela seguinte, clicar em "uploading an existing file"
+
+6. ARRASTAR TODOS OS ARQUIVOS E PASTAS:
+   📁 .github/
+   📁 public/
+   📁 src/
+   📄 .env.example
+   📄 .gitignore
+   📄 package.json
+   📄 README.md
+   📄 REGRAS_FIREBASE.txt
+   📄 INSTRUCOES_COLETA_DOACOES.md
+
+   ⚠️ NÃO ARRASTRAR:
+   - Pasta node_modules/ (se existir)
+   - Arquivo .env.local (nunca commitar isso!)
+   - Pasta .cache/
+   - Pasta .git/
+
+7. Descer até o fim e clicar em "Commit changes"
+
+PRONTO! Os arquivos estão no GitHub.
+
+================================================================================
+
+OPÇÃO 2: Usar Git na linha de comando (se souber usar terminal)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Instalar Git se não tiver: git-scm.com
+
+2. Abrir terminal/prompt e ir para a pasta do projeto:
+   cd caminho/para/ejc-doacoes
+
+3. Executar em sequência:
+   git init
+   git add .
+   git commit -m "Deploy inicial - app coleta doações"
+   git branch -M main
+   git remote add origin https://github.com/SEU-USUARIO/ejc-doacoes.git
+   git push -u origin main
+
+   (Trocar SEU-USUARIO pelo nome da sua conta)
+
+================================================================================
+
+PRÓXIMO PASSO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Depois de enviar os arquivos, siga a ETAPA 3.2 da INSTRUCOES_COLETA_DOACOES.md:
+
+→ Ativar GitHub Pages
+→ Esperar 2-4 min (aba Actions)
+→ App estará online em: https://SEU-USUARIO.github.io/ejc-doacoes/
+
+================================================================================
