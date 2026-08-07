@@ -13,6 +13,8 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  writeBatch,
+  increment,
 } from 'firebase/firestore';
 import { db, firebaseConfigurado } from '../firebase';
 import {
@@ -21,6 +23,7 @@ import {
   mockAdicionar,
   mockAtualizar,
   mockRemover,
+  mockRegistrarDoacaoRateada,
 } from './mockFirestore';
 
 // Só cai no mock em desenvolvimento. Em produção sem credencial o app mostra
@@ -104,6 +107,41 @@ export async function atualizar(colecao, id, dados) {
   if (CONFIG_AUSENTE) throw ERRO_SEM_CONFIG;
 
   await updateDoc(doc(db, colecao, id), dados);
+}
+
+/**
+ * Grava uma doação já rateada entre as equipes que compartilham o item: um
+ * documento em "doacoes" por equipe, e o "recebido" do item correspondente
+ * incrementado — tudo num lote só (ou grava tudo, ou não grava nada).
+ *
+ * O contador "recebido" existe só pra tela pública do doador saber quanto
+ * cada item ainda precisa sem precisar ler a collection "doacoes" (que tem
+ * nome/telefone/endereço de outras pessoas). Admin e coordenadores continuam
+ * calculando a partir de "doacoes" mesmo, que é a fonte mais rica.
+ *
+ * `alocacoes`: [{ itemId, equipeId, itemNome, quantidade }]
+ */
+export async function registrarDoacaoRateada(alocacoes, dadosDoador) {
+  if (MODO_MOCK) return mockRegistrarDoacaoRateada(alocacoes, dadosDoador);
+  if (CONFIG_AUSENTE) throw ERRO_SEM_CONFIG;
+
+  const lote = writeBatch(db);
+
+  alocacoes.forEach((alocacao) => {
+    const doacaoRef = doc(collection(db, 'doacoes'));
+    lote.set(doacaoRef, {
+      ...dadosDoador,
+      item_id: alocacao.itemId,
+      item_nome: alocacao.itemNome,
+      equipe_id: alocacao.equipeId,
+      quantidade: alocacao.quantidade,
+    });
+    lote.update(doc(db, 'itens', alocacao.itemId), {
+      recebido: increment(alocacao.quantidade),
+    });
+  });
+
+  await lote.commit();
 }
 
 export async function remover(colecao, id) {

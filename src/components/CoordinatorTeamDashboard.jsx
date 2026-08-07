@@ -74,6 +74,8 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
       await adicionar('itens', {
         nome,
         quantidade,
+        // Espelho público da soma das doações — ver registrarDoacaoRateada.
+        recebido: 0,
         equipe_id: equipeAtiva,
         ativo: true,
         criado_em: new Date(),

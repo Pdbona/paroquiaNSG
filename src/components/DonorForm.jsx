@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import '../styles/DonorForm.css';
 import axios from 'axios';
 import BrandLogo from './BrandLogo';
-import { adicionar, mensagemDeErro } from '../services/db';
+import { registrarDoacaoRateada, mensagemDeErro } from '../services/db';
+import { ratearEntreEquipes } from '../utils/agregacoes';
 import {
   formatarCEP,
   formatarTelefone,
@@ -10,6 +11,7 @@ import {
   emailValido,
   telefoneValido,
   cepValido,
+  normalizarNome,
 } from '../utils/formato';
 
 function DonorForm({ equipes, itens, onVoltar }) {
@@ -20,13 +22,15 @@ function DonorForm({ equipes, itens, onVoltar }) {
     telefone: '',
     cep: '',
     endereco: '',
+    numero: '',
+    referencia: '',
     bairro: '',
     cidade: '',
     estado: '',
   });
   const [itensSelecionados, setItensSelecionados] = useState([]);
-  // Quantidade digitada em cada card da prateleira, por item_id — só entra
-  // no pedido quando a pessoa clica em Adicionar.
+  // Quantidade digitada em cada card da prateleira, por chave do item — só
+  // entra no pedido quando a pessoa clica em Adicionar.
   const [quantidadesPrateleira, setQuantidadesPrateleira] = useState({});
   const [erro, setErro] = useState('');
   const [buscandoCep, setBuscandoCep] = useState(false);
@@ -43,14 +47,22 @@ function DonorForm({ equipes, itens, onVoltar }) {
     return itens.filter((item) => item.ativo !== false && idsAtivos.has(item.equipe_id));
   }, [itens, equipesAtivas]);
 
-  const itensPorEquipe = useMemo(() => {
-    return equipesAtivas
-      .map((equipe) => ({
-        equipe,
-        itens: itensDisponiveis.filter((item) => item.equipe_id === equipe.id),
-      }))
-      .filter((grupo) => grupo.itens.length > 0);
-  }, [equipesAtivas, itensDisponiveis]);
+  /**
+   * O doador não escolhe equipe — vê um catálogo único, com a quantidade
+   * somada de todas as equipes que pedem aquele item (mesmo nome). O rateio
+   * entre equipes acontece na hora de gravar, em confirmarDoacao.
+   */
+  const catalogo = useMemo(() => {
+    const grupos = new Map();
+    itensDisponiveis.forEach((item) => {
+      const chave = normalizarNome(item.nome);
+      if (!grupos.has(chave)) {
+        grupos.set(chave, { chave, nome: item.nome, necessario: 0 });
+      }
+      grupos.get(chave).necessario += Number(item.quantidade) || 0;
+    });
+    return [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [itensDisponiveis]);
 
   const handleInputChange = (evento) => {
     const { name, value } = evento.target;
@@ -132,49 +144,41 @@ function DonorForm({ equipes, itens, onVoltar }) {
 
   // Valor mostrado no campo de quantidade do card: o que a pessoa está
   // digitando agora, ou — se ainda não mexeu — o que já está no carrinho.
-  const quantidadeNoCard = (item, carrinho) => {
-    if (quantidadesPrateleira[item.id] !== undefined) return quantidadesPrateleira[item.id];
+  const quantidadeNoCard = (grupo, carrinho) => {
+    if (quantidadesPrateleira[grupo.chave] !== undefined) return quantidadesPrateleira[grupo.chave];
     return carrinho ? String(carrinho.quantidade) : '1';
   };
 
-  const definirQuantidadeNoCard = (itemId, valor) => {
-    setQuantidadesPrateleira((anterior) => ({ ...anterior, [itemId]: valor }));
+  const definirQuantidadeNoCard = (chave, valor) => {
+    setQuantidadesPrateleira((anterior) => ({ ...anterior, [chave]: valor }));
   };
 
-  const adicionarAoCarrinho = (item) => {
+  const adicionarAoCarrinho = (grupo) => {
     setErro('');
 
-    const jaNoCarrinho = itensSelecionados.find((registro) => registro.id === item.id);
-    const quantidadeNumero = parseInt(quantidadeNoCard(item, jaNoCarrinho), 10);
+    const jaNoCarrinho = itensSelecionados.find((registro) => registro.chave === grupo.chave);
+    const quantidadeNumero = parseInt(quantidadeNoCard(grupo, jaNoCarrinho), 10);
 
     if (!Number.isFinite(quantidadeNumero) || quantidadeNumero <= 0) {
-      setErro(`Digite uma quantidade maior que zero para "${item.nome}"`);
+      setErro(`Digite uma quantidade maior que zero para "${grupo.nome}"`);
       return;
     }
 
     setItensSelecionados((anterior) => {
       if (jaNoCarrinho) {
         return anterior.map((registro) =>
-          registro.id === item.id ? { ...registro, quantidade: quantidadeNumero } : registro
+          registro.chave === grupo.chave ? { ...registro, quantidade: quantidadeNumero } : registro
         );
       }
-      return [
-        ...anterior,
-        {
-          id: item.id,
-          nome: item.nome,
-          quantidade: quantidadeNumero,
-          equipe_id: item.equipe_id,
-        },
-      ];
+      return [...anterior, { chave: grupo.chave, nome: grupo.nome, quantidade: quantidadeNumero }];
     });
   };
 
-  const removerItem = (id) => {
-    setItensSelecionados((anterior) => anterior.filter((item) => item.id !== id));
+  const removerItem = (chave) => {
+    setItensSelecionados((anterior) => anterior.filter((item) => item.chave !== chave));
     setQuantidadesPrateleira((anterior) => {
       const copia = { ...anterior };
-      delete copia[id];
+      delete copia[chave];
       return copia;
     });
   };
@@ -193,12 +197,14 @@ function DonorForm({ equipes, itens, onVoltar }) {
       setSalvando(true);
       setErro('');
 
-      const base = {
+      const dadosDoador = {
         doador_nome: formData.nome.trim(),
         doador_email: formData.email.trim(),
         doador_telefone: formData.telefone,
         doador_cep: formData.cep,
         doador_endereco: formData.endereco,
+        doador_numero: formData.numero,
+        doador_referencia: formData.referencia,
         doador_bairro: formData.bairro,
         doador_cidade: formData.cidade,
         doador_estado: formData.estado,
@@ -206,19 +212,42 @@ function DonorForm({ equipes, itens, onVoltar }) {
         entregue: false,
       };
 
-      // Um documento por item: cada equipe acompanha o que é dela.
-      await Promise.all(
-        itensSelecionados.map((item) =>
-          adicionar('doacoes', {
-            ...base,
-            item_id: item.id,
-            item_nome: item.nome,
-            quantidade: item.quantidade,
-            equipe_id: item.equipe_id,
-          })
-        )
-      );
+      // Rateia cada item do carrinho entre as equipes que o pedem, com base
+      // no estado mais atual de itens (chega em tempo real via onSnapshot).
+      const alocacoes = itensSelecionados.flatMap((entrada) => {
+        const itensDoGrupo = itensDisponiveis.filter(
+          (item) => normalizarNome(item.nome) === entrada.chave
+        );
+        const registros = itensDoGrupo.map((item) => {
+          const equipe = equipes.find((registro) => registro.id === item.equipe_id);
+          return {
+            id: item.id,
+            equipeId: item.equipe_id,
+            equipeNome: equipe ? equipe.nome : '',
+            necessario: Number(item.quantidade) || 0,
+            recebido: Number(item.recebido) || 0,
+          };
+        });
 
+        if (registros.length === 0) return [];
+
+        const equipePorItem = new Map(registros.map((r) => [r.id, r.equipeId]));
+        return ratearEntreEquipes(entrada.quantidade, registros)
+          .filter((parte) => parte.quantidade > 0)
+          .map((parte) => ({
+            itemId: parte.id,
+            equipeId: equipePorItem.get(parte.id),
+            itemNome: entrada.nome,
+            quantidade: parte.quantidade,
+          }));
+      });
+
+      if (alocacoes.length === 0) {
+        setErro('Não foi possível registrar a doação. Atualize a página e tente de novo.');
+        return;
+      }
+
+      await registrarDoacaoRateada(alocacoes, dadosDoador);
       setEtapa('sucesso');
     } catch (problema) {
       setErro(`Erro ao registrar doação: ${mensagemDeErro(problema)}`);
@@ -243,6 +272,8 @@ function DonorForm({ equipes, itens, onVoltar }) {
       telefone: '',
       cep: '',
       endereco: '',
+      numero: '',
+      referencia: '',
       bairro: '',
       cidade: '',
       estado: '',
@@ -263,8 +294,12 @@ function DonorForm({ equipes, itens, onVoltar }) {
           <h2>Muito Obrigado!</h2>
           <p>Sua doação foi registrada com sucesso.</p>
           <p className="mensagem-secundaria">
-            A equipe entrará em contato pelo telefone <strong>{formData.telefone}</strong> para
-            combinar a entrega.
+            Em breve entraremos em contato para combinar a entrega ou a retirada da sua doação.
+          </p>
+          <p className="assinatura-sucesso">
+            — Equipe de Dirigentes do Encontro
+            <br />
+            Paróquia Nossa Senhora de Guadalupe
           </p>
           <button onClick={recomecar} className="btn-primary">
             Voltar ao Início
@@ -375,8 +410,31 @@ function DonorForm({ equipes, itens, onVoltar }) {
                     name="endereco"
                     value={formData.endereco}
                     onChange={handleInputChange}
-                    placeholder="Rua e número"
+                    placeholder="Rua"
                   />
+                </div>
+
+                <div className="linha-dupla">
+                  <div className="formulario-grupo campo-numero">
+                    <label>Número</label>
+                    <input
+                      type="text"
+                      name="numero"
+                      value={formData.numero}
+                      onChange={handleInputChange}
+                      placeholder="Ex: 123"
+                    />
+                  </div>
+                  <div className="formulario-grupo">
+                    <label>Ponto de Referência</label>
+                    <input
+                      type="text"
+                      name="referencia"
+                      value={formData.referencia}
+                      onChange={handleInputChange}
+                      placeholder="Ex: perto da padaria, portão azul"
+                    />
+                  </div>
                 </div>
 
                 <div className="linha-dupla">
@@ -429,68 +487,63 @@ function DonorForm({ equipes, itens, onVoltar }) {
               Toque na quantidade que você quer doar de cada item e clique em Adicionar.
             </p>
 
-            {itensPorEquipe.map((grupo) => (
-              <div key={grupo.equipe.id} className="prateleira-equipe">
-                <h4 className="prateleira-titulo">{grupo.equipe.nome}</h4>
-                <div className="grade-prateleira">
-                  {grupo.itens.map((item) => {
-                    const noCarrinho = itensSelecionados.find(
-                      (registro) => registro.id === item.id
-                    );
-                    return (
-                      <div
-                        key={item.id}
-                        className={`item-prateleira ${noCarrinho ? 'no-carrinho' : ''}`}
+            <div className="grade-prateleira">
+              {catalogo.map((grupo) => {
+                const noCarrinho = itensSelecionados.find(
+                  (registro) => registro.chave === grupo.chave
+                );
+                return (
+                  <div
+                    key={grupo.chave}
+                    className={`item-prateleira ${noCarrinho ? 'no-carrinho' : ''}`}
+                  >
+                    {noCarrinho && <span className="selo-carrinho">🛒 No pedido</span>}
+                    <div className="item-prateleira-nome">{grupo.nome}</div>
+                    <div className="item-prateleira-meta">Precisa de {grupo.necessario}</div>
+                    <div className="item-prateleira-acoes">
+                      <input
+                        type="number"
+                        min="1"
+                        value={quantidadeNoCard(grupo, noCarrinho)}
+                        onChange={(evento) =>
+                          definirQuantidadeNoCard(grupo.chave, evento.target.value)
+                        }
+                        className="input-quantidade"
+                        aria-label={`Quantidade de ${grupo.nome}`}
+                      />
+                      <button
+                        className="btn-dourado btn-mini"
+                        onClick={() => adicionarAoCarrinho(grupo)}
                       >
-                        {noCarrinho && <span className="selo-carrinho">🛒 No pedido</span>}
-                        <div className="item-prateleira-nome">{item.nome}</div>
-                        <div className="item-prateleira-meta">Precisa de {item.quantidade}</div>
-                        <div className="item-prateleira-acoes">
-                          <input
-                            type="number"
-                            min="1"
-                            value={quantidadeNoCard(item, noCarrinho)}
-                            onChange={(evento) =>
-                              definirQuantidadeNoCard(item.id, evento.target.value)
-                            }
-                            className="input-quantidade"
-                            aria-label={`Quantidade de ${item.nome}`}
-                          />
-                          <button
-                            className="btn-dourado btn-mini"
-                            onClick={() => adicionarAoCarrinho(item)}
-                          >
-                            {noCarrinho ? 'Atualizar' : '+ Adicionar'}
-                          </button>
-                        </div>
-                        {noCarrinho && (
-                          <button
-                            className="link-remover"
-                            onClick={() => removerItem(item.id)}
-                          >
-                            Remover do pedido
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                        {noCarrinho ? 'Atualizar' : '+ Adicionar'}
+                      </button>
+                    </div>
+                    {noCarrinho && (
+                      <button className="link-remover" onClick={() => removerItem(grupo.chave)}>
+                        Remover do pedido
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             {itensSelecionados.length > 0 && (
               <div className="bloco-itens">
                 <h3>Itens Selecionados ({itensSelecionados.length})</h3>
                 <div className="itens-selecionados">
                   {itensSelecionados.map((item) => (
-                    <div key={item.id} className="item-selecionado">
+                    <div key={item.chave} className="item-selecionado">
                       <div className="item-info">
                         <strong>{item.nome}</strong>
                         <span>
                           {item.quantidade} unidade{item.quantidade > 1 ? 's' : ''}
                         </span>
                       </div>
-                      <button onClick={() => removerItem(item.id)} className="btn-danger btn-mini">
+                      <button
+                        onClick={() => removerItem(item.chave)}
+                        className="btn-danger btn-mini"
+                      >
                         Remover
                       </button>
                     </div>
@@ -526,29 +579,28 @@ function DonorForm({ equipes, itens, onVoltar }) {
               </p>
               {formData.cidade && (
                 <p>
-                  <strong>Localidade:</strong> {formData.endereco ? `${formData.endereco}, ` : ''}
-                  {formData.bairro ? `${formData.bairro}, ` : ''}
-                  {formData.cidade}/{formData.estado}
+                  <strong>Localidade:</strong> {formData.endereco ? `${formData.endereco}` : ''}
+                  {formData.numero ? `, ${formData.numero}` : ''}
+                  {formData.bairro ? ` — ${formData.bairro}` : ''}
+                  {formData.cidade ? `, ${formData.cidade}` : ''}
+                  {formData.estado ? `/${formData.estado}` : ''}
+                  {formData.referencia ? ` (${formData.referencia})` : ''}
                 </p>
               )}
             </div>
 
             <div className="confirmacao-secao">
               <h4>Itens a Doar</h4>
-              {itensSelecionados.map((item) => {
-                const equipe = equipes.find((registro) => registro.id === item.equipe_id);
-                return (
-                  <div key={item.id} className="item-confirmacao">
-                    <span>
-                      <strong>{item.nome}</strong>
-                      {equipe && <small> · {equipe.nome}</small>}
-                    </span>
-                    <span>
-                      {item.quantidade} unidade{item.quantidade > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                );
-              })}
+              {itensSelecionados.map((item) => (
+                <div key={item.chave} className="item-confirmacao">
+                  <span>
+                    <strong>{item.nome}</strong>
+                  </span>
+                  <span>
+                    {item.quantidade} unidade{item.quantidade > 1 ? 's' : ''}
+                  </span>
+                </div>
+              ))}
             </div>
 
             <div className="alerta alerta-info">

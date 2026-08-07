@@ -14,11 +14,14 @@ const SEED = {
     { id: 'equipe-limpeza', nome: 'Limpeza', ativa: true, criada_em: new Date('2026-08-01') },
   ],
   itens: [
-    { id: 'item-arroz', nome: 'Arroz (kg)', quantidade: 50, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-feijao', nome: 'Feijão (kg)', quantidade: 30, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-cafe', nome: 'Café (pacote 500g)', quantidade: 20, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-acucar', nome: 'Açúcar (kg)', quantidade: 15, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-detergente', nome: 'Detergente (un)', quantidade: 24, equipe_id: 'equipe-limpeza', ativo: true, criado_em: new Date('2026-08-02') },
+    // "recebido" é o espelho público da soma das doações desse item — a
+    // tela do doador usa isso pra ratear sem precisar ler dados de outros
+    // doadores. Ver registrarDoacaoRateada em services/db.js.
+    { id: 'item-arroz', nome: 'Arroz (kg)', quantidade: 50, recebido: 10, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-feijao', nome: 'Feijão (kg)', quantidade: 30, recebido: 0, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-cafe', nome: 'Café (pacote 500g)', quantidade: 20, recebido: 0, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-acucar', nome: 'Açúcar (kg)', quantidade: 15, recebido: 0, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-detergente', nome: 'Detergente (un)', quantidade: 24, recebido: 0, equipe_id: 'equipe-limpeza', ativo: true, criado_em: new Date('2026-08-02') },
   ],
   coordenadores: [
     // PIN em texto puro só no seed de desenvolvimento. Em produção o app grava
@@ -112,4 +115,31 @@ export async function mockRemover(colecao, id) {
   garantirColecao(colecao);
   store[colecao] = store[colecao].filter((doc) => doc.id !== id);
   notificar(colecao);
+}
+
+/** Espelha o comportamento em lote de registrarDoacaoRateada (services/db.js). */
+export async function mockRegistrarDoacaoRateada(alocacoes, dadosDoador) {
+  garantirColecao('doacoes');
+  garantirColecao('itens');
+
+  alocacoes.forEach((alocacao) => {
+    const id = novoId('doacoes');
+    store.doacoes.push({
+      ...dadosDoador,
+      id,
+      item_id: alocacao.itemId,
+      item_nome: alocacao.itemNome,
+      equipe_id: alocacao.equipeId,
+      quantidade: alocacao.quantidade,
+    });
+
+    const indice = store.itens.findIndex((item) => item.id === alocacao.itemId);
+    if (indice !== -1) {
+      const atual = Number(store.itens[indice].recebido) || 0;
+      store.itens[indice] = { ...store.itens[indice], recebido: atual + alocacao.quantidade };
+    }
+  });
+
+  notificar('doacoes');
+  notificar('itens');
 }

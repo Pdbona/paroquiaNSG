@@ -3,6 +3,8 @@
  * 50 kg de arroz atende um item que pede 50 kg, e não "1 de 50".
  */
 
+import { normalizarNome } from './formato';
+
 export function somaQuantidades(registros) {
   return registros.reduce((total, registro) => total + (Number(registro.quantidade) || 0), 0);
 }
@@ -61,6 +63,74 @@ export function resumoEquipe(equipe, itens, doacoes) {
     itensFaltando: situacao.filter((item) => item.faltam > 0),
     pendentesEntrega: doacoesEquipe.filter((doacao) => !doacao.entregue).length,
   };
+}
+
+/**
+ * Divide a doação de um item compartilhado entre as equipes que o pedem —
+ * a tela do doador não segrega por equipe, então isso acontece no momento
+ * de gravar. Regra combinada com o Pablo: quantidade par divide igual;
+ * ímpar, o resto vai pra Cozinha. Nunca passa do que cada equipe ainda
+ * precisa — o excedente migra pra quem ainda tem espaço, e só sobra pra
+ * primeira da lista se TODAS já tiverem atingido a meta (a doação física
+ * não pode sumir do registro).
+ *
+ * `registros`: [{ id, equipeNome, necessario, recebido }]
+ * devolve: [{ id, quantidade }]
+ */
+export function ratearEntreEquipes(quantidadeTotal, registros) {
+  if (registros.length === 0) return [];
+  if (registros.length === 1) {
+    return [{ id: registros[0].id, quantidade: quantidadeTotal }];
+  }
+
+  const ordenados = [...registros].sort((a, b) => {
+    const aCozinha = normalizarNome(a.equipeNome) === 'cozinha';
+    const bCozinha = normalizarNome(b.equipeNome) === 'cozinha';
+    if (aCozinha !== bCozinha) return aCozinha ? -1 : 1;
+    return a.equipeNome.localeCompare(b.equipeNome, 'pt-BR');
+  });
+
+  const n = ordenados.length;
+  const base = Math.floor(quantidadeTotal / n);
+  const resto = quantidadeTotal % n;
+
+  let alocacao = ordenados.map((registro, indice) => ({
+    ...registro,
+    quantidade: base + (indice === 0 ? resto : 0),
+  }));
+
+  // Respeita o teto de cada equipe: quem passaria do necessário devolve o
+  // excedente, que é redistribuído pra quem ainda tem espaço.
+  let sobra = 0;
+  alocacao = alocacao.map((registro) => {
+    const capacidade = Math.max(0, registro.necessario - registro.recebido);
+    if (registro.quantidade > capacidade) {
+      sobra += registro.quantidade - capacidade;
+      return { ...registro, quantidade: capacidade };
+    }
+    return registro;
+  });
+
+  let indice = 0;
+  while (sobra > 0 && indice < alocacao.length) {
+    const registro = alocacao[indice];
+    const capacidade = Math.max(0, registro.necessario - registro.recebido);
+    const espaco = capacidade - registro.quantidade;
+    if (espaco > 0) {
+      const dar = Math.min(espaco, sobra);
+      registro.quantidade += dar;
+      sobra -= dar;
+    }
+    indice += 1;
+  }
+
+  // Todo mundo já supriu a meta e ainda sobrou: deposita na primeira da
+  // lista em vez de descartar a quantidade que a pessoa está doando de fato.
+  if (sobra > 0) {
+    alocacao[0].quantidade += sobra;
+  }
+
+  return alocacao.map((registro) => ({ id: registro.id, quantidade: registro.quantidade }));
 }
 
 /**

@@ -394,6 +394,11 @@
   min-width: 80px;
 }
 
+.linha-dupla .campo-numero {
+  flex: 0 0 110px;
+  min-width: 90px;
+}
+
 .btn-mini {
   padding: 6px 12px;
   font-size: 12px;
@@ -414,6 +419,14 @@
   line-height: 1.6;
 }
 
+.assinatura-sucesso {
+  color: #8B4513;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 25px;
+}
+
 /* ----------------------------------------------------- Prateleira de itens */
 
 .texto-apoio {
@@ -423,22 +436,11 @@
   margin-bottom: 20px;
 }
 
-.prateleira-equipe {
-  margin-bottom: 26px;
-}
-
-.prateleira-titulo {
-  color: #1B5E3F;
-  font-size: 15px;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid #D4AF37;
-}
-
 .grade-prateleira {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
+  margin-bottom: 20px;
 }
 
 .item-prateleira {
