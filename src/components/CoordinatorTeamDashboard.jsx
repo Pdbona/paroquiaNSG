@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import DetalheDoadorModal from './DetalheDoadorModal';
+import RelatorioPorEquipe from './RelatorioPorEquipe';
 import { adicionar, atualizar, remover, mensagemDeErro } from '../services/db';
 import { resumoEquipe, doadoresCompartilhados } from '../utils/agregacoes';
 import {
@@ -254,32 +255,12 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
 
         <div className="cabecalho-equipe">
           <h2>Equipe: {equipeAtual.nome}</h2>
-          <button className="btn-secondary nao-imprimir" onClick={() => window.print()}>
-            🖨️ Relatório de faltantes
-          </button>
         </div>
 
-        <div className="grade-stats">
-          <div className="card-stat card-stat--verde">
-            <h3>📦 Itens na Lista</h3>
-            <p className="numero">{resumo.totalItens}</p>
-          </div>
-
-          <div className="card-stat card-stat--dourado">
-            <h3>🎯 Meta (quantidade)</h3>
-            <p className="numero">{resumo.necessario}</p>
-          </div>
-
-          <div className="card-stat card-stat--terracota">
-            <h3>🎁 Já Recebido</h3>
-            <p className="numero">{resumo.recebido}</p>
-          </div>
-
-          <div className="card-stat card-stat--sucesso">
-            <h3>✅ Progresso</h3>
-            <p className="numero">{resumo.progresso}%</p>
-          </div>
-        </div>
+        <p className="resumo-compacto nao-imprimir">
+          📦 {resumo.totalItens} item(ns) · 🎯 necessário {resumo.necessario} · 🎁 recebido{' '}
+          {resumo.recebido} · ✅ {resumo.progresso}%
+        </p>
 
         {resumo.pendentesEntrega > 0 && (
           <div className="alerta alerta-info nao-imprimir">
@@ -293,21 +274,24 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
             <ul className="lista-alertas">
               {compartilhados.map((doador, indice) => (
                 <li key={`${doador.telefone}-${indice}`}>
-                  <strong>{doador.nome}</strong> ({doador.telefone}) também tem doação para{' '}
-                  {[
-                    ...new Set(
-                      doador.outrasEquipes.map((doacao) => {
-                        const outra = equipes.find((equipe) => equipe.id === doacao.equipe_id);
-                        return outra ? outra.nome : 'outra equipe';
-                      })
-                    ),
-                  ].join(', ')}
+                  <strong>{doador.nome}</strong> ({doador.telefone}) também tem doação de{' '}
+                  {doador.outrasEquipes
+                    .map((doacao) => {
+                      const outra = equipes.find((equipe) => equipe.id === doacao.equipe_id);
+                      return `${doacao.item_nome} (${formatarQuantidadeUnidade(
+                        doacao.quantidade,
+                        doacao.item_unidade
+                      )}) para ${outra ? outra.nome : 'outra equipe'}`;
+                    })
+                    .join(' · ')}
                   . Combine uma coleta só.
                 </li>
               ))}
             </ul>
           </div>
         )}
+
+        <RelatorioPorEquipe resumos={[resumo]} />
 
         <div className="form-secao nao-imprimir form-secao--compacta">
           <div className="form-secao-cabecalho">
@@ -370,21 +354,23 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
         {sucessoMsg && <div className="alerta alerta-sucesso nao-imprimir">{sucessoMsg}</div>}
         {erroMsg && <div className="alerta alerta-erro nao-imprimir">{erroMsg}</div>}
 
-        <h3 className="titulo-secao">Itens Necessários</h3>
-        <table className="tabela">
+        <h3 className="titulo-secao nao-imprimir">Gerenciar Itens</h3>
+        <p className="texto-apoio nao-imprimir">
+          Só o cadastro (nome e meta). Pra ver quanto já chegou e o que falta, veja o relatório
+          acima.
+        </p>
+        <table className="tabela nao-imprimir">
           <thead>
             <tr>
               <th>Item</th>
-              <th>Necessário</th>
-              <th>Recebido</th>
-              <th>Faltam</th>
-              <th className="nao-imprimir">Ações</th>
+              <th>Meta</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {resumo.itens.length === 0 ? (
               <tr>
-                <td colSpan="5" className="celula-vazia">
+                <td colSpan="3" className="celula-vazia">
                   Nenhum item cadastrado
                 </td>
               </tr>
@@ -453,20 +439,6 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
                         </div>
                       ) : (
                         formatarQuantidadeUnidade(item.necessario, item.unidade)
-                      )}
-                    </td>
-                    <td>
-                      <span className="badge badge-info">
-                        {formatarQuantidadeUnidade(item.recebido, item.unidade)}
-                      </span>
-                    </td>
-                    <td>
-                      {item.faltam > 0 ? (
-                        <span className="badge badge-danger">
-                          {formatarQuantidadeUnidade(item.faltam, item.unidade)}
-                        </span>
-                      ) : (
-                        <span className="badge badge-success">✓ Completo</span>
                       )}
                     </td>
                     <td className="celula-acoes nao-imprimir">

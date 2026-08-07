@@ -54,6 +54,9 @@ export function resumoEquipe(equipe, itens, doacoes) {
   return {
     equipe,
     itens: situacao,
+    // Lista crua das doações da equipe — usada no relatório "só o que foi
+    // doado e por quem" (RelatorioPorEquipe).
+    doacoes: doacoesEquipe,
     totalItens: itensEquipe.length,
     totalDoacoes: doacoesEquipe.length,
     necessario,

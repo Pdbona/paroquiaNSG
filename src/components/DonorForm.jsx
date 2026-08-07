@@ -318,11 +318,6 @@ function DonorForm({ equipes, itens, onVoltar }) {
             <p className="mensagem-secundaria">
               Em breve entraremos em contato para combinar a entrega ou a retirada da sua doação.
             </p>
-            <p className="assinatura-sucesso">
-              — Equipe de Dirigentes do Encontro
-              <br />
-              Paróquia Nossa Senhora de Guadalupe
-            </p>
             <button onClick={recomecar} className="btn-primary">
               Voltar ao Início
             </button>

@@ -576,3 +576,23 @@
 .form-secao--compacta .form-linha {
   margin-top: 12px;
 }
+
+/* ----------------------------------------------------- Seletor do relatório */
+
+.relatorio-controles {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.relatorio-controles .select-equipe {
+  min-width: 200px;
+}
+
+.linha-doador {
+  display: block;
+  color: #777;
+  font-size: 11px;
+  margin-top: 2px;
+}
