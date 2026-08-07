@@ -122,32 +122,35 @@
 
 .form-secao {
   background: #f9f9f9;
-  padding: 20px;
+  padding: 14px 16px;
   border-radius: 8px;
   border-left: 4px solid #D4AF37;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .form-secao h3 {
   color: #1B5E3F;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
+  font-size: 15px;
 }
 
 .form-linha {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .form-linha input {
   flex: 1;
-  padding: 12px;
+  min-width: 140px;
+  padding: 9px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .form-linha button {
-  padding: 12px 24px;
+  padding: 9px 18px;
 }
 
 .tabela {
@@ -162,14 +165,16 @@
 .tabela th {
   background-color: #1B5E3F;
   color: white;
-  padding: 15px;
+  padding: 10px 12px;
   text-align: left;
   font-weight: 600;
+  font-size: 13px;
 }
 
 .tabela td {
-  padding: 12px 15px;
+  padding: 9px 12px;
   border-bottom: 1px solid #ddd;
+  font-size: 13px;
 }
 
 .tabela tr:hover {
@@ -484,4 +489,90 @@
   .input-unidade-outra {
     flex: 1 1 100%;
   }
+}
+
+/* ----------------------------------------------------- Cards de estatística */
+
+.grade-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.card-stat {
+  background: white;
+  border-radius: 8px;
+  padding: 12px 14px;
+  border-left: 4px solid #ccc;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.card-stat h3 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #666;
+  margin: 0 0 4px;
+}
+
+.card-stat .numero {
+  font-size: 22px;
+  font-weight: bold;
+  margin: 0;
+  color: #333;
+}
+
+.card-stat--verde {
+  background: #EAF4EF;
+  border-left-color: #1B5E3F;
+}
+.card-stat--verde .numero {
+  color: #1B5E3F;
+}
+
+.card-stat--dourado {
+  background: #FDF6E0;
+  border-left-color: #D4AF37;
+}
+.card-stat--dourado .numero {
+  color: #8a6d1f;
+}
+
+.card-stat--terracota {
+  background: #F7ECE3;
+  border-left-color: #8B4513;
+}
+.card-stat--terracota .numero {
+  color: #8B4513;
+}
+
+.card-stat--sucesso {
+  background: #E9F7EC;
+  border-left-color: #28a745;
+}
+.card-stat--sucesso .numero {
+  color: #1e7e34;
+}
+
+/* ----------------------------------------------------- Formulário compacto */
+
+.form-secao--compacta {
+  padding: 12px 16px;
+}
+
+.form-secao-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.form-secao-cabecalho h3 {
+  margin: 0;
+}
+
+.form-secao--compacta .form-linha {
+  margin-top: 12px;
 }

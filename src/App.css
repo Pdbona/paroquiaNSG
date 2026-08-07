@@ -81,8 +81,8 @@
 /* Main Container */
 .app-main {
   max-width: 1200px;
-  margin: 20px auto;
-  padding: 20px;
+  margin: 16px auto;
+  padding: 16px 20px;
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -659,4 +659,102 @@ button:disabled:hover {
     width: 68px;
     height: 68px;
   }
+}
+
+/* ----------------------------------------------------- Modal do doador */
+
+.link-doador {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #1B5E3F;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.link-doador:hover {
+  transform: none;
+  box-shadow: none;
+  color: #144530;
+}
+
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal-cartao {
+  position: relative;
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.modal-cartao h3 {
+  color: #1B5E3F;
+  margin: 0 0 16px;
+  padding-right: 24px;
+}
+
+.modal-fechar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #f0f0f0;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  color: #555;
+  padding: 0;
+}
+
+.modal-fechar:hover {
+  background: #e2e2e2;
+  transform: none;
+  box-shadow: none;
+}
+
+.modal-secao {
+  padding: 10px 0;
+  border-top: 1px solid #eee;
+}
+
+.modal-secao:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.modal-linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 3px 0;
+}
+
+.modal-rotulo {
+  color: #888;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.modal-linha span:last-child {
+  text-align: right;
 }

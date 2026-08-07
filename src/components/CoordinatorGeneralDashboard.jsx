@@ -2,11 +2,13 @@ import React, { useMemo, useState } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
+import DetalheDoadorModal from './DetalheDoadorModal';
 import { resumoEquipe } from '../utils/agregacoes';
 import { formatarDataHora, formatarQuantidadeUnidade } from '../utils/formato';
 
 function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const [filtroEquipe, setFiltroEquipe] = useState('');
+  const [doadorSelecionado, setDoadorSelecionado] = useState(null);
 
   const resumos = useMemo(
     () => equipes.map((equipe) => resumoEquipe(equipe, itens, doacoes)),
@@ -89,7 +91,14 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
                     <td>{doacao.item_nome}</td>
                     <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
                     <td>{equipe ? equipe.nome : 'Indefinida'}</td>
-                    <td>{doacao.doador_nome}</td>
+                    <td>
+                      <button
+                        className="link-doador"
+                        onClick={() => setDoadorSelecionado(doacao)}
+                      >
+                        {doacao.doador_nome}
+                      </button>
+                    </td>
                     <td>{doacao.doador_telefone}</td>
                     <td>
                       {doacao.entregue ? (
@@ -105,6 +114,11 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
           </tbody>
         </table>
       </div>
+
+      <DetalheDoadorModal
+        doacao={doadorSelecionado}
+        onFechar={() => setDoadorSelecionado(null)}
+      />
     </div>
   );
 }

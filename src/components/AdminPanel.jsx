@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
+import DetalheDoadorModal from './DetalheDoadorModal';
 import { adicionar, atualizar, remover, mensagemDeErro, MODO_MOCK } from '../services/db';
 import { criarCoordenador, redefinirPin } from '../services/auth';
 import { resumoEquipe } from '../utils/agregacoes';
@@ -18,6 +19,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   const [erroMsg, setErroMsg] = useState('');
   const [sucessoMsg, setSucessoMsg] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [doadorSelecionado, setDoadorSelecionado] = useState(null);
 
   // Equipes
   const [novaEquipe, setNovaEquipe] = useState('');
@@ -321,7 +323,11 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                     <td>{doacao.item_nome}</td>
                     <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
                     <td>{equipe ? equipe.nome : 'Indefinida'}</td>
-                    <td>{doacao.doador_nome}</td>
+                    <td>
+                      <button className="link-doador" onClick={() => setDoadorSelecionado(doacao)}>
+                        {doacao.doador_nome}
+                      </button>
+                    </td>
                     <td>{doacao.doador_telefone}</td>
                   </tr>
                 );
@@ -695,6 +701,11 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
           {aba === 'configuracoes' && renderConfiguracoes()}
         </div>
       </div>
+
+      <DetalheDoadorModal
+        doacao={doadorSelecionado}
+        onFechar={() => setDoadorSelecionado(null)}
+      />
     </div>
   );
 }

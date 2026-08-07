@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
+import DetalheDoadorModal from './DetalheDoadorModal';
 import { adicionar, atualizar, remover, mensagemDeErro } from '../services/db';
 import { resumoEquipe, doadoresCompartilhados } from '../utils/agregacoes';
 import {
@@ -18,6 +19,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
     equipeFixa || equipes[0]?.id || ''
   );
 
+  const [mostrarNovoItem, setMostrarNovoItem] = useState(false);
   const [novoItem, setNovoItem] = useState('');
   const [novaQuantidade, setNovaQuantidade] = useState('');
   const [novaUnidade, setNovaUnidade] = useState('');
@@ -32,6 +34,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const [erroMsg, setErroMsg] = useState('');
   const [sucessoMsg, setSucessoMsg] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [doadorSelecionado, setDoadorSelecionado] = useState(null);
 
   const equipeAtiva = equipeFixa || equipeSelecionada;
   const equipeAtual = equipes.find((equipe) => equipe.id === equipeAtiva);
@@ -256,23 +259,23 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
           </button>
         </div>
 
-        <div className="dashboard-grid">
-          <div className="card-info">
+        <div className="grade-stats">
+          <div className="card-stat card-stat--verde">
             <h3>📦 Itens na Lista</h3>
             <p className="numero">{resumo.totalItens}</p>
           </div>
 
-          <div className="card-info">
+          <div className="card-stat card-stat--dourado">
             <h3>🎯 Meta (quantidade)</h3>
             <p className="numero">{resumo.necessario}</p>
           </div>
 
-          <div className="card-info">
+          <div className="card-stat card-stat--terracota">
             <h3>🎁 Já Recebido</h3>
             <p className="numero">{resumo.recebido}</p>
           </div>
 
-          <div className="card-info">
+          <div className="card-stat card-stat--sucesso">
             <h3>✅ Progresso</h3>
             <p className="numero">{resumo.progresso}%</p>
           </div>
@@ -306,51 +309,62 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
           </div>
         )}
 
-        <div className="form-secao nao-imprimir">
-          <h3>Adicionar Item</h3>
-          <div className="form-linha">
-            <input
-              type="text"
-              value={novoItem}
-              onChange={(evento) => setNovoItem(evento.target.value)}
-              onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
-              placeholder="Nome do item (ex: Arroz)"
-            />
-            <input
-              type="number"
-              min="1"
-              value={novaQuantidade}
-              onChange={(evento) => setNovaQuantidade(evento.target.value)}
-              onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
-              placeholder="Qtd"
-              className="input-quantidade"
-            />
-            <select
-              value={novaUnidade}
-              onChange={(evento) => setNovaUnidade(evento.target.value)}
-              className="select-unidade"
+        <div className="form-secao nao-imprimir form-secao--compacta">
+          <div className="form-secao-cabecalho">
+            <h3>Itens</h3>
+            <button
+              className="btn-dourado btn-mini"
+              onClick={() => setMostrarNovoItem((anterior) => !anterior)}
             >
-              <option value="">Unidade</option>
-              {UNIDADES_ITEM.map((unidade) => (
-                <option key={unidade.valor} value={unidade.valor}>
-                  {unidade.rotulo}
-                </option>
-              ))}
-            </select>
-            {novaUnidade === 'outra' && (
-              <input
-                type="text"
-                value={novaUnidadeOutra}
-                onChange={(evento) => setNovaUnidadeOutra(evento.target.value)}
-                onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
-                placeholder="Qual? (ex: sacos)"
-                className="input-unidade-outra"
-              />
-            )}
-            <button className="btn-primary" onClick={adicionarItem} disabled={salvando}>
-              {salvando ? 'Salvando...' : 'Adicionar'}
+              {mostrarNovoItem ? '✕ Fechar' : '+ Adicionar Item'}
             </button>
           </div>
+          {mostrarNovoItem && (
+            <div className="form-linha">
+              <input
+                type="text"
+                value={novoItem}
+                onChange={(evento) => setNovoItem(evento.target.value)}
+                onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
+                placeholder="Nome do item (ex: Arroz)"
+                autoFocus
+              />
+              <input
+                type="number"
+                min="1"
+                value={novaQuantidade}
+                onChange={(evento) => setNovaQuantidade(evento.target.value)}
+                onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
+                placeholder="Qtd"
+                className="input-quantidade"
+              />
+              <select
+                value={novaUnidade}
+                onChange={(evento) => setNovaUnidade(evento.target.value)}
+                className="select-unidade"
+              >
+                <option value="">Unidade</option>
+                {UNIDADES_ITEM.map((unidade) => (
+                  <option key={unidade.valor} value={unidade.valor}>
+                    {unidade.rotulo}
+                  </option>
+                ))}
+              </select>
+              {novaUnidade === 'outra' && (
+                <input
+                  type="text"
+                  value={novaUnidadeOutra}
+                  onChange={(evento) => setNovaUnidadeOutra(evento.target.value)}
+                  onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
+                  placeholder="Qual? (ex: sacos)"
+                  className="input-unidade-outra"
+                />
+              )}
+              <button className="btn-primary" onClick={adicionarItem} disabled={salvando}>
+                {salvando ? 'Salvando...' : 'Adicionar'}
+              </button>
+            </div>
+          )}
         </div>
 
         {sucessoMsg && <div className="alerta alerta-sucesso nao-imprimir">{sucessoMsg}</div>}
@@ -537,7 +551,14 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
                 <tr key={doacao.id}>
                   <td>{doacao.item_nome}</td>
                   <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
-                  <td>{doacao.doador_nome}</td>
+                  <td>
+                    <button
+                      className="link-doador"
+                      onClick={() => setDoadorSelecionado(doacao)}
+                    >
+                      {doacao.doador_nome}
+                    </button>
+                  </td>
                   <td>{doacao.doador_telefone}</td>
                   <td>{formatarDataHora(doacao.data_criacao)}</td>
                   <td>
@@ -562,6 +583,11 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
           </tbody>
         </table>
       </div>
+
+      <DetalheDoadorModal
+        doacao={doadorSelecionado}
+        onFechar={() => setDoadorSelecionado(null)}
+      />
     </div>
   );
 }
