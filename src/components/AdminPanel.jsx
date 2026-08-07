@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import '../styles/AdminPanel.css';
+import BrandLogo from './BrandLogo';
 import { adicionar, atualizar, remover, mensagemDeErro, MODO_MOCK } from '../services/db';
 import { criarCoordenador, redefinirPin } from '../services/auth';
-import { resumoEquipe, somaQuantidades, percentual } from '../utils/agregacoes';
+import { resumoEquipe } from '../utils/agregacoes';
 import {
   formatarDataHora,
   normalizarNome,
@@ -35,8 +36,6 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   };
 
   const resumos = equipes.map((equipe) => resumoEquipe(equipe, itens, doacoes));
-  const necessarioTotal = somaQuantidades(itens);
-  const recebidoTotal = resumos.reduce((total, resumo) => total + resumo.recebido, 0);
 
   // ---------------------------------------------------------------- Equipes
 
@@ -266,49 +265,17 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
     );
     const equipesSemItens = resumos.filter((resumo) => resumo.totalItens === 0);
 
+    // Um card por item, com a equipe como etiqueta — não por equipe com uma
+    // barra só, que escondia a situação de cada item.
+    const itensComEquipe = resumos.flatMap((resumo) =>
+      resumo.itens.map((item) => ({ ...item, equipeNome: resumo.equipe.nome }))
+    );
+
     return (
       <div>
-        <div className="dashboard-grid">
-          <div className="card-info">
-            <h3>📦 Itens Cadastrados</h3>
-            <p className="numero">{itens.length}</p>
-          </div>
-
-          <div className="card-info">
-            <h3>🎯 Quantidade Necessária</h3>
-            <p className="numero">{necessarioTotal}</p>
-          </div>
-
-          <div className="card-info">
-            <h3>🎁 Quantidade Recebida</h3>
-            <p className="numero">{recebidoTotal}</p>
-          </div>
-
-          <div className="card-info">
-            <h3>✅ Meta Atingida</h3>
-            <p className="numero">{percentual(recebidoTotal, necessarioTotal)}%</p>
-          </div>
-
-          <div className="card-info full-width">
-            <h3>Progresso das Equipes</h3>
-            {resumos.length === 0 && (
-              <p className="texto-vazio">Nenhuma equipe cadastrada ainda.</p>
-            )}
-            {resumos.map((resumo) => (
-              <div key={resumo.equipe.id} className="progresso-item">
-                <span>{resumo.equipe.nome}</span>
-                <div className="progress-bar">
-                  <div className="progress-bar-fill" style={{ width: `${resumo.progresso}%` }}>
-                    {resumo.progresso}%
-                  </div>
-                </div>
-                <small className="progresso-detalhe">
-                  {resumo.recebido} de {resumo.necessario}
-                </small>
-              </div>
-            ))}
-          </div>
-        </div>
+        <p className="resumo-compacto">
+          📦 {itens.length} item(ns) cadastrado(s) em {equipes.length} equipe(s)
+        </p>
 
         {(semNadaRecebido.length > 0 || equipesSemItens.length > 0) && (
           <div className="alerta alerta-aviso">
@@ -325,6 +292,34 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        <h3 className="titulo-secao">Situação por Item</h3>
+        {itensComEquipe.length === 0 ? (
+          <p className="texto-vazio">Nenhum item cadastrado ainda.</p>
+        ) : (
+          <div className="grade-itens-dash">
+            {itensComEquipe.map((item) => (
+              <div key={item.id} className="item-dash-card">
+                <span className="item-dash-equipe">{item.equipeNome}</span>
+                <h4>{item.nome}</h4>
+                <div className="item-dash-numeros">
+                  <span>
+                    Necessário <strong>{item.necessario}</strong>
+                  </span>
+                  <span>
+                    Recebido <strong>{item.recebido}</strong>
+                  </span>
+                </div>
+                <div className="progress-bar mini">
+                  <div className="progress-bar-fill" style={{ width: `${item.progresso}%` }} />
+                </div>
+                <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
+                  {item.faltam > 0 ? `Faltam ${item.faltam}` : '✓ Meta atingida'}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -685,7 +680,10 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   return (
     <div className="admin-container">
       <div className="app-header">
-        <h1>🔐 Painel Administrativo</h1>
+        <div className="titulo-cabecalho">
+          <BrandLogo variante="cabecalho" />
+          <h1>🔐 Painel Administrativo</h1>
+        </div>
         <div className="user-info">
           <span>Bem-vindo, {user.nome}!</span>
           <button onClick={onLogout}>Sair</button>

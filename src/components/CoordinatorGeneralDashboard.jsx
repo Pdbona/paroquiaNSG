@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import '../styles/AdminPanel.css';
-import { resumoEquipe, somaQuantidades, percentual } from '../utils/agregacoes';
+import BrandLogo from './BrandLogo';
+import { resumoEquipe } from '../utils/agregacoes';
 import { formatarDataHora } from '../utils/formato';
 
 function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }) {
@@ -11,8 +12,15 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
     [equipes, itens, doacoes]
   );
 
-  const necessarioTotal = somaQuantidades(itens);
-  const recebidoTotal = resumos.reduce((total, resumo) => total + resumo.recebido, 0);
+  // Um card por item, com a equipe como etiqueta — mais fácil de escanear
+  // do que uma barra de progresso por equipe inteira.
+  const itensComEquipe = useMemo(
+    () =>
+      resumos.flatMap((resumo) =>
+        resumo.itens.map((item) => ({ ...item, equipeNome: resumo.equipe.nome }))
+      ),
+    [resumos]
+  );
 
   const doacoesFiltradas = useMemo(() => {
     const lista = filtroEquipe
@@ -29,7 +37,10 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
   return (
     <div className="admin-container">
       <div className="app-header">
-        <h1>👥 Dashboard Coordenador Geral</h1>
+        <div className="titulo-cabecalho">
+          <BrandLogo variante="cabecalho" />
+          <h1>👥 Dashboard Coordenador Geral</h1>
+        </div>
         <div className="user-info">
           <span>Bem-vindo, {user.nome}!</span>
           <button onClick={onLogout}>Sair</button>
@@ -37,49 +48,37 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
       </div>
 
       <div className="app-main">
-        <div className="dashboard-grid">
-          <div className="card-info">
-            <h3>🎯 Meta Geral</h3>
-            <p className="numero">{necessarioTotal}</p>
-          </div>
-          <div className="card-info">
-            <h3>🎁 Recebido</h3>
-            <p className="numero">{recebidoTotal}</p>
-          </div>
-          <div className="card-info">
-            <h3>✅ Progresso</h3>
-            <p className="numero">{percentual(recebidoTotal, necessarioTotal)}%</p>
-          </div>
-        </div>
+        <p className="resumo-compacto">
+          📦 {itens.length} item(ns) cadastrado(s) em {equipes.length} equipe(s)
+        </p>
 
-        <h2 className="titulo-secao">Por Equipe</h2>
-        <div className="dashboard-grid">
-          {resumos.length === 0 && <p className="texto-vazio">Nenhuma equipe cadastrada.</p>}
-
-          {resumos.map((resumo) => (
-            <div key={resumo.equipe.id} className="card-info full-width">
-              <h3>{resumo.equipe.nome}</h3>
-              <p>
-                Meta: <strong>{resumo.necessario}</strong> · Recebido:{' '}
-                <strong>{resumo.recebido}</strong> · Itens:{' '}
-                <strong>{resumo.totalItens}</strong>
-              </p>
-              <div className="progress-bar">
-                <div className="progress-bar-fill" style={{ width: `${resumo.progresso}%` }}>
-                  {resumo.progresso}%
+        <h2 className="titulo-secao">Situação por Item</h2>
+        {itensComEquipe.length === 0 ? (
+          <p className="texto-vazio">Nenhum item cadastrado ainda.</p>
+        ) : (
+          <div className="grade-itens-dash">
+            {itensComEquipe.map((item) => (
+              <div key={item.id} className="item-dash-card">
+                <span className="item-dash-equipe">{item.equipeNome}</span>
+                <h4>{item.nome}</h4>
+                <div className="item-dash-numeros">
+                  <span>
+                    Necessário <strong>{item.necessario}</strong>
+                  </span>
+                  <span>
+                    Recebido <strong>{item.recebido}</strong>
+                  </span>
                 </div>
+                <div className="progress-bar mini">
+                  <div className="progress-bar-fill" style={{ width: `${item.progresso}%` }} />
+                </div>
+                <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
+                  {item.faltam > 0 ? `Faltam ${item.faltam}` : '✓ Meta atingida'}
+                </span>
               </div>
-              {resumo.itensFaltando.length > 0 && (
-                <p className="texto-faltantes">
-                  Faltam:{' '}
-                  {resumo.itensFaltando
-                    .map((item) => `${item.nome} (${item.faltam})`)
-                    .join(' · ')}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="cabecalho-equipe">
           <h2>📊 Todas as Doações</h2>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import '../styles/DonorForm.css';
 import axios from 'axios';
+import BrandLogo from './BrandLogo';
 import { adicionar, mensagemDeErro } from '../services/db';
 import {
   formatarCEP,
@@ -23,9 +24,10 @@ function DonorForm({ equipes, itens, onVoltar }) {
     cidade: '',
     estado: '',
   });
-  const [itemSelecionado, setItemSelecionado] = useState('');
-  const [quantidade, setQuantidade] = useState('1');
   const [itensSelecionados, setItensSelecionados] = useState([]);
+  // Quantidade digitada em cada card da prateleira, por item_id — só entra
+  // no pedido quando a pessoa clica em Adicionar.
+  const [quantidadesPrateleira, setQuantidadesPrateleira] = useState({});
   const [erro, setErro] = useState('');
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -128,46 +130,53 @@ function DonorForm({ equipes, itens, onVoltar }) {
     setEtapa('itens');
   };
 
-  const adicionarItem = () => {
+  // Valor mostrado no campo de quantidade do card: o que a pessoa está
+  // digitando agora, ou — se ainda não mexeu — o que já está no carrinho.
+  const quantidadeNoCard = (item, carrinho) => {
+    if (quantidadesPrateleira[item.id] !== undefined) return quantidadesPrateleira[item.id];
+    return carrinho ? String(carrinho.quantidade) : '1';
+  };
+
+  const definirQuantidadeNoCard = (itemId, valor) => {
+    setQuantidadesPrateleira((anterior) => ({ ...anterior, [itemId]: valor }));
+  };
+
+  const adicionarAoCarrinho = (item) => {
     setErro('');
 
-    if (!itemSelecionado) {
-      setErro('Selecione um item');
-      return;
-    }
+    const jaNoCarrinho = itensSelecionados.find((registro) => registro.id === item.id);
+    const quantidadeNumero = parseInt(quantidadeNoCard(item, jaNoCarrinho), 10);
 
-    const quantidadeNumero = parseInt(quantidade, 10);
     if (!Number.isFinite(quantidadeNumero) || quantidadeNumero <= 0) {
-      setErro('Digite uma quantidade maior que zero');
+      setErro(`Digite uma quantidade maior que zero para "${item.nome}"`);
       return;
     }
 
-    const item = itensDisponiveis.find((registro) => registro.id === itemSelecionado);
-    if (!item) {
-      setErro('Item não encontrado. Atualize a página.');
-      return;
-    }
-    if (itensSelecionados.some((registro) => registro.id === itemSelecionado)) {
-      setErro('Este item já foi adicionado. Remova para trocar a quantidade.');
-      return;
-    }
-
-    setItensSelecionados((anterior) => [
-      ...anterior,
-      {
-        id: item.id,
-        nome: item.nome,
-        quantidade: quantidadeNumero,
-        equipe_id: item.equipe_id,
-      },
-    ]);
-
-    setItemSelecionado('');
-    setQuantidade('1');
+    setItensSelecionados((anterior) => {
+      if (jaNoCarrinho) {
+        return anterior.map((registro) =>
+          registro.id === item.id ? { ...registro, quantidade: quantidadeNumero } : registro
+        );
+      }
+      return [
+        ...anterior,
+        {
+          id: item.id,
+          nome: item.nome,
+          quantidade: quantidadeNumero,
+          equipe_id: item.equipe_id,
+        },
+      ];
+    });
   };
 
   const removerItem = (id) => {
     setItensSelecionados((anterior) => anterior.filter((item) => item.id !== id));
+    setQuantidadesPrateleira((anterior) => {
+      const copia = { ...anterior };
+      delete copia[id];
+      return copia;
+    });
   };
 
   const irParaConfirmacao = () => {
@@ -222,8 +231,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
   // de mais uma coisa logo depois de registrar.
   const novaDoacao = () => {
     setItensSelecionados([]);
-    setItemSelecionado('');
-    setQuantidade('1');
+    setQuantidadesPrateleira({});
     setErro('');
     setEtapa('itens');
   };
@@ -240,8 +248,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
       estado: '',
     });
     setItensSelecionados([]);
-    setItemSelecionado('');
-    setQuantidade('1');
+    setQuantidadesPrateleira({});
     setErro('');
     setEtapa('dados');
     onVoltar();
@@ -250,6 +257,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
   if (etapa === 'sucesso') {
     return (
       <div className="donor-container">
+        <BrandLogo variante="lateral" />
         <div className="donor-card sucesso">
           <div className="sucesso-icon">✅</div>
           <h2>Muito Obrigado!</h2>
@@ -271,8 +279,10 @@ function DonorForm({ equipes, itens, onVoltar }) {
 
   return (
     <div className="donor-container">
+      <BrandLogo variante="lateral" />
       <div className="donor-card">
         <div className="donor-header">
+          <BrandLogo variante="cartao" />
           <h1>🎁 Fazer Doação</h1>
           <p>II Encontro de Jovens com Cristo</p>
           <p className="donor-subtitle">Paróquia Nossa Senhora de Guadalupe</p>
@@ -414,40 +424,59 @@ function DonorForm({ equipes, itens, onVoltar }) {
 
         {etapa === 'itens' && (
           <div className="donor-formulario">
-            <h3>Selecione os Itens</h3>
+            <h3>Escolha na Prateleira</h3>
+            <p className="texto-apoio">
+              Toque na quantidade que você quer doar de cada item e clique em Adicionar.
+            </p>
 
-            <div className="formulario-grupo">
-              <label>Item *</label>
-              <select
-                value={itemSelecionado}
-                onChange={(evento) => setItemSelecionado(evento.target.value)}
-              >
-                <option value="">-- Escolha um item --</option>
-                {itensPorEquipe.map((grupo) => (
-                  <optgroup key={grupo.equipe.id} label={grupo.equipe.nome}>
-                    {grupo.itens.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nome}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-
-            <div className="formulario-grupo">
-              <label>Quantidade *</label>
-              <input
-                type="number"
-                value={quantidade}
-                onChange={(evento) => setQuantidade(evento.target.value)}
-                min="1"
-              />
-            </div>
-
-            <button onClick={adicionarItem} className="btn-dourado botao-largo">
-              Adicionar Item
-            </button>
+            {itensPorEquipe.map((grupo) => (
+              <div key={grupo.equipe.id} className="prateleira-equipe">
+                <h4 className="prateleira-titulo">{grupo.equipe.nome}</h4>
+                <div className="grade-prateleira">
+                  {grupo.itens.map((item) => {
+                    const noCarrinho = itensSelecionados.find(
+                      (registro) => registro.id === item.id
+                    );
+                    return (
+                      <div
+                        key={item.id}
+                        className={`item-prateleira ${noCarrinho ? 'no-carrinho' : ''}`}
+                      >
+                        {noCarrinho && <span className="selo-carrinho">🛒 No pedido</span>}
+                        <div className="item-prateleira-nome">{item.nome}</div>
+                        <div className="item-prateleira-meta">Precisa de {item.quantidade}</div>
+                        <div className="item-prateleira-acoes">
+                          <input
+                            type="number"
+                            min="1"
+                            value={quantidadeNoCard(item, noCarrinho)}
+                            onChange={(evento) =>
+                              definirQuantidadeNoCard(item.id, evento.target.value)
+                            }
+                            className="input-quantidade"
+                            aria-label={`Quantidade de ${item.nome}`}
+                          />
+                          <button
+                            className="btn-dourado btn-mini"
+                            onClick={() => adicionarAoCarrinho(item)}
+                          >
+                            {noCarrinho ? 'Atualizar' : '+ Adicionar'}
+                          </button>
+                        </div>
+                        {noCarrinho && (
+                          <button
+                            className="link-remover"
+                            onClick={() => removerItem(item.id)}
+                          >
+                            Remover do pedido
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             {itensSelecionados.length > 0 && (
               <div className="bloco-itens">

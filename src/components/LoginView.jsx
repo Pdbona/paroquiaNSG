@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/LoginView.css';
+import BrandLogo from './BrandLogo';
 import { criarCoordenador, pinConfere, sessaoDoCoordenador } from '../services/auth';
 import { mensagemDeErro } from '../services/db';
 import { pinValido, rotuloTipo } from '../utils/formato';
@@ -101,6 +102,7 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
 
   const cabecalho = (
     <div className="logo-section">
+      <BrandLogo variante="cartao" />
       <h1>Coleta de Doações</h1>
       <p>II Encontro de Jovens com Cristo</p>
       <p className="subtitulo">Paróquia Nossa Senhora de Guadalupe</p>
@@ -110,6 +112,7 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
   if (semCadastro) {
     return (
       <div className="login-container">
+        <BrandLogo variante="lateral" />
         <div className="login-card">
           {cabecalho}
 
@@ -177,6 +180,7 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
   if (tipo) {
     return (
       <div className="login-container">
+        <BrandLogo variante="lateral" />
         <div className="login-card">
           {cabecalho}
 
@@ -253,6 +257,7 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
 
   return (
     <div className="login-container">
+      <BrandLogo variante="lateral" />
       <div className="login-card">
         {cabecalho}
 

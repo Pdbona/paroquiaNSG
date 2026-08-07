@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import '../styles/AdminPanel.css';
+import BrandLogo from './BrandLogo';
 import { adicionar, atualizar, remover, mensagemDeErro } from '../services/db';
 import { resumoEquipe, doadoresCompartilhados } from '../utils/agregacoes';
 import { formatarDataHora, normalizarNome } from '../utils/formato';
@@ -150,7 +151,10 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
     return (
       <div className="admin-container">
         <div className="app-header">
-          <h1>👤 Minha Equipe</h1>
+          <div className="titulo-cabecalho">
+            <BrandLogo variante="cabecalho" />
+            <h1>👤 Minha Equipe</h1>
+          </div>
           <div className="user-info">
             <span>Bem-vindo, {user.nome}!</span>
             <button onClick={onLogout}>Sair</button>
@@ -170,7 +174,10 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   return (
     <div className="admin-container">
       <div className="app-header nao-imprimir">
-        <h1>👤 Minha Equipe</h1>
+        <div className="titulo-cabecalho">
+          <BrandLogo variante="cabecalho" />
+          <h1>👤 Minha Equipe</h1>
+        </div>
         <div className="user-info">
           <span>Bem-vindo, {user.nome}!</span>
           <button onClick={onLogout}>Sair</button>

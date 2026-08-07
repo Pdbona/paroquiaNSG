@@ -507,3 +507,66 @@ button:disabled:hover {
     overflow-x: hidden;
   }
 }
+
+/* ----------------------------------------------------- Logo da paróquia */
+
+.logo-guadalupe {
+  display: block;
+  object-fit: contain;
+}
+
+.logo-guadalupe--cabecalho {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 3px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.titulo-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-guadalupe--cartao {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 12px;
+}
+
+.logo-guadalupe--lateral {
+  position: fixed;
+  top: 50%;
+  left: 24px;
+  transform: translateY(-50%);
+  width: 200px;
+  height: auto;
+  max-height: 70vh;
+  opacity: 0.95;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.4));
+  z-index: 0;
+}
+
+/* Só cabe quando sobra espaço nas laterais do cartão centralizado (o mais
+   largo, donor-card, tem 600px + folga — 1300px garante que não encoste). */
+@media (max-width: 1300px) {
+  .logo-guadalupe--lateral {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-guadalupe--cabecalho {
+    width: 34px;
+    height: 34px;
+  }
+
+  .logo-guadalupe--cartao {
+    width: 68px;
+    height: 68px;
+  }
+}
