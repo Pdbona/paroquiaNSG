@@ -119,7 +119,7 @@ export async function atualizar(colecao, id, dados) {
  * nome/telefone/endereço de outras pessoas). Admin e coordenadores continuam
  * calculando a partir de "doacoes" mesmo, que é a fonte mais rica.
  *
- * `alocacoes`: [{ itemId, equipeId, itemNome, quantidade }]
+ * `alocacoes`: [{ itemId, equipeId, itemNome, itemUnidade, quantidade }]
  */
 export async function registrarDoacaoRateada(alocacoes, dadosDoador) {
   if (MODO_MOCK) return mockRegistrarDoacaoRateada(alocacoes, dadosDoador);
@@ -133,6 +133,7 @@ export async function registrarDoacaoRateada(alocacoes, dadosDoador) {
       ...dadosDoador,
       item_id: alocacao.itemId,
       item_nome: alocacao.itemNome,
+      item_unidade: alocacao.itemUnidade || '',
       equipe_id: alocacao.equipeId,
       quantidade: alocacao.quantidade,
     });

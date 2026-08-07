@@ -17,11 +17,11 @@ const SEED = {
     // "recebido" é o espelho público da soma das doações desse item — a
     // tela do doador usa isso pra ratear sem precisar ler dados de outros
     // doadores. Ver registrarDoacaoRateada em services/db.js.
-    { id: 'item-arroz', nome: 'Arroz (kg)', quantidade: 50, recebido: 10, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-feijao', nome: 'Feijão (kg)', quantidade: 30, recebido: 0, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-cafe', nome: 'Café (pacote 500g)', quantidade: 20, recebido: 0, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-acucar', nome: 'Açúcar (kg)', quantidade: 15, recebido: 0, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
-    { id: 'item-detergente', nome: 'Detergente (un)', quantidade: 24, recebido: 0, equipe_id: 'equipe-limpeza', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-arroz', nome: 'Arroz', unidade: 'kg', quantidade: 50, recebido: 10, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-feijao', nome: 'Feijão', unidade: 'kg', quantidade: 30, recebido: 0, equipe_id: 'equipe-cozinha', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-cafe', nome: 'Café', unidade: 'pacote', quantidade: 20, recebido: 0, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-acucar', nome: 'Açúcar', unidade: 'kg', quantidade: 15, recebido: 0, equipe_id: 'equipe-cafezinho', ativo: true, criado_em: new Date('2026-08-02') },
+    { id: 'item-detergente', nome: 'Detergente', unidade: 'unidade', quantidade: 24, recebido: 0, equipe_id: 'equipe-limpeza', ativo: true, criado_em: new Date('2026-08-02') },
   ],
   coordenadores: [
     // PIN em texto puro só no seed de desenvolvimento. Em produção o app grava
@@ -35,7 +35,8 @@ const SEED = {
     {
       id: 'doacao-exemplo',
       item_id: 'item-arroz',
-      item_nome: 'Arroz (kg)',
+      item_nome: 'Arroz',
+      item_unidade: 'kg',
       quantidade: 10,
       equipe_id: 'equipe-cozinha',
       doador_nome: 'Doador de Exemplo',
@@ -129,6 +130,7 @@ export async function mockRegistrarDoacaoRateada(alocacoes, dadosDoador) {
       id,
       item_id: alocacao.itemId,
       item_nome: alocacao.itemNome,
+      item_unidade: alocacao.itemUnidade || '',
       equipe_id: alocacao.equipeId,
       quantidade: alocacao.quantidade,
     });

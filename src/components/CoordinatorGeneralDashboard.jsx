@@ -3,7 +3,7 @@ import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
 import { resumoEquipe } from '../utils/agregacoes';
-import { formatarDataHora } from '../utils/formato';
+import { formatarDataHora, formatarQuantidadeUnidade } from '../utils/formato';
 
 function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const [filtroEquipe, setFiltroEquipe] = useState('');
@@ -87,7 +87,7 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
                   <tr key={doacao.id}>
                     <td>{formatarDataHora(doacao.data_criacao)}</td>
                     <td>{doacao.item_nome}</td>
-                    <td>{doacao.quantidade}</td>
+                    <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
                     <td>{equipe ? equipe.nome : 'Indefinida'}</td>
                     <td>{doacao.doador_nome}</td>
                     <td>{doacao.doador_telefone}</td>

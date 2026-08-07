@@ -7,6 +7,7 @@ import { ratearEntreEquipes } from '../utils/agregacoes';
 import {
   formatarCEP,
   formatarTelefone,
+  formatarQuantidadeUnidade,
   somenteDigitos,
   emailValido,
   telefoneValido,
@@ -57,7 +58,10 @@ function DonorForm({ equipes, itens, onVoltar }) {
     itensDisponiveis.forEach((item) => {
       const chave = normalizarNome(item.nome);
       if (!grupos.has(chave)) {
-        grupos.set(chave, { chave, nome: item.nome, necessario: 0 });
+        // A unidade vem do primeiro item encontrado com esse nome — equipes
+        // diferentes pedindo o "mesmo" item devem usar a mesma unidade
+        // (ver aviso no REGRAS_FIREBASE.txt).
+        grupos.set(chave, { chave, nome: item.nome, unidade: item.unidade || '', necessario: 0 });
       }
       grupos.get(chave).necessario += Number(item.quantidade) || 0;
     });
@@ -170,7 +174,10 @@ function DonorForm({ equipes, itens, onVoltar }) {
           registro.chave === grupo.chave ? { ...registro, quantidade: quantidadeNumero } : registro
         );
       }
-      return [...anterior, { chave: grupo.chave, nome: grupo.nome, quantidade: quantidadeNumero }];
+      return [
+        ...anterior,
+        { chave: grupo.chave, nome: grupo.nome, unidade: grupo.unidade, quantidade: quantidadeNumero },
+      ];
     });
   };
 
@@ -238,6 +245,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
             itemId: parte.id,
             equipeId: equipePorItem.get(parte.id),
             itemNome: entrada.nome,
+            itemUnidade: entrada.unidade,
             quantidade: parte.quantidade,
           }));
       });
@@ -285,28 +293,43 @@ function DonorForm({ equipes, itens, onVoltar }) {
     onVoltar();
   };
 
+  // Só aparece em telas largas (ver .tela-dividida/.painel-marca no CSS) —
+  // no celular a logo pequena dentro do cartão já cobre a marca.
+  const painelMarca = (
+    <div className="painel-marca">
+      <BrandLogo variante="lateral" />
+      <p className="painel-marca-legenda">
+        II Encontro de Jovens com Cristo
+        <br />
+        Paróquia Nossa Senhora de Guadalupe
+      </p>
+    </div>
+  );
+
   if (etapa === 'sucesso') {
     return (
       <div className="donor-container">
-        <BrandLogo variante="lateral" />
-        <div className="donor-card sucesso">
-          <div className="sucesso-icon">✅</div>
-          <h2>Muito Obrigado!</h2>
-          <p>Sua doação foi registrada com sucesso.</p>
-          <p className="mensagem-secundaria">
-            Em breve entraremos em contato para combinar a entrega ou a retirada da sua doação.
-          </p>
-          <p className="assinatura-sucesso">
-            — Equipe de Dirigentes do Encontro
-            <br />
-            Paróquia Nossa Senhora de Guadalupe
-          </p>
-          <button onClick={recomecar} className="btn-primary">
-            Voltar ao Início
-          </button>
-          <button onClick={novaDoacao} className="btn-secondary botao-largo">
-            Registrar outra doação
-          </button>
+        <div className="tela-dividida">
+          {painelMarca}
+          <div className="donor-card sucesso">
+            <div className="sucesso-icon">✅</div>
+            <h2>Muito Obrigado!</h2>
+            <p>Sua doação foi registrada com sucesso.</p>
+            <p className="mensagem-secundaria">
+              Em breve entraremos em contato para combinar a entrega ou a retirada da sua doação.
+            </p>
+            <p className="assinatura-sucesso">
+              — Equipe de Dirigentes do Encontro
+              <br />
+              Paróquia Nossa Senhora de Guadalupe
+            </p>
+            <button onClick={recomecar} className="btn-primary">
+              Voltar ao Início
+            </button>
+            <button onClick={novaDoacao} className="btn-secondary botao-largo">
+              Registrar outra doação
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -314,8 +337,9 @@ function DonorForm({ equipes, itens, onVoltar }) {
 
   return (
     <div className="donor-container">
-      <BrandLogo variante="lateral" />
-      <div className="donor-card">
+      <div className="tela-dividida">
+        {painelMarca}
+        <div className="donor-card">
         <div className="donor-header">
           <BrandLogo variante="cartao" />
           <h1>🎁 Fazer Doação</h1>
@@ -499,7 +523,9 @@ function DonorForm({ equipes, itens, onVoltar }) {
                   >
                     {noCarrinho && <span className="selo-carrinho">🛒 No pedido</span>}
                     <div className="item-prateleira-nome">{grupo.nome}</div>
-                    <div className="item-prateleira-meta">Precisa de {grupo.necessario}</div>
+                    <div className="item-prateleira-meta">
+                      Precisa de {formatarQuantidadeUnidade(grupo.necessario, grupo.unidade)}
+                    </div>
                     <div className="item-prateleira-acoes">
                       <input
                         type="number"
@@ -536,9 +562,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
                     <div key={item.chave} className="item-selecionado">
                       <div className="item-info">
                         <strong>{item.nome}</strong>
-                        <span>
-                          {item.quantidade} unidade{item.quantidade > 1 ? 's' : ''}
-                        </span>
+                        <span>{formatarQuantidadeUnidade(item.quantidade, item.unidade)}</span>
                       </div>
                       <button
                         onClick={() => removerItem(item.chave)}
@@ -596,9 +620,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
                   <span>
                     <strong>{item.nome}</strong>
                   </span>
-                  <span>
-                    {item.quantidade} unidade{item.quantidade > 1 ? 's' : ''}
-                  </span>
+                  <span>{formatarQuantidadeUnidade(item.quantidade, item.unidade)}</span>
                 </div>
               ))}
             </div>
@@ -625,6 +647,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

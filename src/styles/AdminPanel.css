@@ -446,3 +446,42 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ----------------------------------------------------- Unidade do item */
+
+.select-unidade {
+  padding: 12px 8px;
+  flex: 0 0 120px;
+}
+
+.input-unidade-outra {
+  flex: 0 0 130px;
+  padding: 12px;
+}
+
+.edicao-quantidade-unidade {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.edicao-quantidade-unidade .input-quantidade {
+  width: 70px;
+}
+
+.edicao-quantidade-unidade .select-unidade {
+  flex: 0 0 100px;
+  padding: 8px 4px;
+}
+
+.edicao-quantidade-unidade .input-unidade-outra {
+  flex: 0 0 100px;
+  padding: 8px;
+}
+
+@media (max-width: 768px) {
+  .select-unidade,
+  .input-unidade-outra {
+    flex: 1 1 100%;
+  }
+}

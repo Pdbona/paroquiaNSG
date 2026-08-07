@@ -84,3 +84,24 @@ export function rotuloTipo(tipo) {
   if (tipo === 'coord-equipe') return 'Coordenador de Equipe';
   return tipo;
 }
+
+// Unidades mais comuns numa coleta de doações. "outra" libera texto livre
+// pra o que não estiver na lista (ex: "sacos", "garrafas de 5L").
+export const UNIDADES_ITEM = [
+  { valor: 'kg', rotulo: 'Kg' },
+  { valor: 'g', rotulo: 'Gramas' },
+  { valor: 'L', rotulo: 'Litros' },
+  { valor: 'ml', rotulo: 'ml' },
+  { valor: 'unidade', rotulo: 'Unidade' },
+  { valor: 'pacote', rotulo: 'Pacote' },
+  { valor: 'caixa', rotulo: 'Caixa' },
+  { valor: 'fardo', rotulo: 'Fardo' },
+  { valor: 'maço', rotulo: 'Maço' },
+  { valor: 'dúzia', rotulo: 'Dúzia' },
+  { valor: 'outra', rotulo: 'Outra' },
+];
+
+/** "50" + "kg" -> "50 kg". Sem unidade cadastrada (item antigo), só o número. */
+export function formatarQuantidadeUnidade(quantidade, unidade) {
+  return unidade ? `${quantidade} ${unidade}` : String(quantidade);
+}

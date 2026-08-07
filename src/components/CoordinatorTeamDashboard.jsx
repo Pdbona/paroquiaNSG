@@ -3,7 +3,12 @@ import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import { adicionar, atualizar, remover, mensagemDeErro } from '../services/db';
 import { resumoEquipe, doadoresCompartilhados } from '../utils/agregacoes';
-import { formatarDataHora, normalizarNome } from '../utils/formato';
+import {
+  formatarDataHora,
+  formatarQuantidadeUnidade,
+  normalizarNome,
+  UNIDADES_ITEM,
+} from '../utils/formato';
 
 function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   // Coordenador de equipe fica preso à própria equipe; admin/geral que caírem
@@ -15,8 +20,15 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
 
   const [novoItem, setNovoItem] = useState('');
   const [novaQuantidade, setNovaQuantidade] = useState('');
+  const [novaUnidade, setNovaUnidade] = useState('');
+  const [novaUnidadeOutra, setNovaUnidadeOutra] = useState('');
   const [itemEditando, setItemEditando] = useState(null);
-  const [dadosEditados, setDadosEditados] = useState({ nome: '', quantidade: '' });
+  const [dadosEditados, setDadosEditados] = useState({
+    nome: '',
+    quantidade: '',
+    unidade: '',
+    unidadeOutra: '',
+  });
   const [erroMsg, setErroMsg] = useState('');
   const [sucessoMsg, setSucessoMsg] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -44,9 +56,17 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
     [doacoes, equipeAtiva]
   );
 
+  // Resolve o valor final da unidade: o que veio do select, ou o texto
+  // livre quando a pessoa escolheu "Outra".
+  const resolverUnidade = (selecionada, textoLivre) => {
+    if (selecionada === 'outra') return textoLivre.trim();
+    return selecionada;
+  };
+
   const adicionarItem = async () => {
     const nome = novoItem.trim();
     const quantidade = parseInt(novaQuantidade, 10);
+    const unidade = resolverUnidade(novaUnidade, novaUnidadeOutra);
 
     if (!equipeAtiva) {
       avisar('', 'Selecione uma equipe primeiro');
@@ -54,6 +74,14 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
     }
     if (!nome) {
       avisar('', 'Digite o nome do item');
+      return;
+    }
+    if (!novaUnidade) {
+      avisar('', 'Selecione a unidade do item');
+      return;
+    }
+    if (novaUnidade === 'outra' && !unidade) {
+      avisar('', 'Digite a unidade do item');
       return;
     }
     if (!Number.isFinite(quantidade) || quantidade <= 0) {
@@ -74,6 +102,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
       await adicionar('itens', {
         nome,
         quantidade,
+        unidade,
         // Espelho público da soma das doações — ver registrarDoacaoRateada.
         recebido: 0,
         equipe_id: equipeAtiva,
@@ -82,6 +111,8 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
       });
       setNovoItem('');
       setNovaQuantidade('');
+      setNovaUnidade('');
+      setNovaUnidadeOutra('');
       avisar('Item adicionado com sucesso!');
     } catch (problema) {
       avisar('', `Erro ao adicionar item: ${mensagemDeErro(problema)}`);
@@ -93,9 +124,18 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const salvarItem = async (item) => {
     const nome = dadosEditados.nome.trim();
     const quantidade = parseInt(dadosEditados.quantidade, 10);
+    const unidade = resolverUnidade(dadosEditados.unidade, dadosEditados.unidadeOutra);
 
     if (!nome) {
       avisar('', 'O nome do item não pode ficar vazio');
+      return;
+    }
+    if (!dadosEditados.unidade) {
+      avisar('', 'Selecione a unidade do item');
+      return;
+    }
+    if (dadosEditados.unidade === 'outra' && !unidade) {
+      avisar('', 'Digite a unidade do item');
       return;
     }
     if (!Number.isFinite(quantidade) || quantidade <= 0) {
@@ -105,7 +145,12 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
 
     try {
       setSalvando(true);
-      await atualizar('itens', item.id, { nome, quantidade, atualizado_em: new Date() });
+      await atualizar('itens', item.id, {
+        nome,
+        quantidade,
+        unidade,
+        atualizado_em: new Date(),
+      });
       setItemEditando(null);
       avisar('Item atualizado!');
     } catch (problema) {
@@ -269,7 +314,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
               value={novoItem}
               onChange={(evento) => setNovoItem(evento.target.value)}
               onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
-              placeholder="Nome do item (ex: Arroz kg)"
+              placeholder="Nome do item (ex: Arroz)"
             />
             <input
               type="number"
@@ -280,6 +325,28 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
               placeholder="Qtd"
               className="input-quantidade"
             />
+            <select
+              value={novaUnidade}
+              onChange={(evento) => setNovaUnidade(evento.target.value)}
+              className="select-unidade"
+            >
+              <option value="">Unidade</option>
+              {UNIDADES_ITEM.map((unidade) => (
+                <option key={unidade.valor} value={unidade.valor}>
+                  {unidade.rotulo}
+                </option>
+              ))}
+            </select>
+            {novaUnidade === 'outra' && (
+              <input
+                type="text"
+                value={novaUnidadeOutra}
+                onChange={(evento) => setNovaUnidadeOutra(evento.target.value)}
+                onKeyDown={(evento) => evento.key === 'Enter' && adicionarItem()}
+                placeholder="Qual? (ex: sacos)"
+                className="input-unidade-outra"
+              />
+            )}
             <button className="btn-primary" onClick={adicionarItem} disabled={salvando}>
               {salvando ? 'Salvando...' : 'Adicionar'}
             </button>
@@ -328,28 +395,62 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
                     </td>
                     <td>
                       {emEdicao ? (
-                        <input
-                          type="number"
-                          min="1"
-                          value={dadosEditados.quantidade}
-                          onChange={(evento) =>
-                            setDadosEditados({
-                              ...dadosEditados,
-                              quantidade: evento.target.value,
-                            })
-                          }
-                          className="input-quantidade"
-                        />
+                        <div className="edicao-quantidade-unidade">
+                          <input
+                            type="number"
+                            min="1"
+                            value={dadosEditados.quantidade}
+                            onChange={(evento) =>
+                              setDadosEditados({
+                                ...dadosEditados,
+                                quantidade: evento.target.value,
+                              })
+                            }
+                            className="input-quantidade"
+                          />
+                          <select
+                            value={dadosEditados.unidade}
+                            onChange={(evento) =>
+                              setDadosEditados({ ...dadosEditados, unidade: evento.target.value })
+                            }
+                            className="select-unidade"
+                          >
+                            <option value="">Unidade</option>
+                            {UNIDADES_ITEM.map((unidade) => (
+                              <option key={unidade.valor} value={unidade.valor}>
+                                {unidade.rotulo}
+                              </option>
+                            ))}
+                          </select>
+                          {dadosEditados.unidade === 'outra' && (
+                            <input
+                              type="text"
+                              value={dadosEditados.unidadeOutra}
+                              onChange={(evento) =>
+                                setDadosEditados({
+                                  ...dadosEditados,
+                                  unidadeOutra: evento.target.value,
+                                })
+                              }
+                              placeholder="Qual?"
+                              className="input-unidade-outra"
+                            />
+                          )}
+                        </div>
                       ) : (
-                        item.necessario
+                        formatarQuantidadeUnidade(item.necessario, item.unidade)
                       )}
                     </td>
                     <td>
-                      <span className="badge badge-info">{item.recebido}</span>
+                      <span className="badge badge-info">
+                        {formatarQuantidadeUnidade(item.recebido, item.unidade)}
+                      </span>
                     </td>
                     <td>
                       {item.faltam > 0 ? (
-                        <span className="badge badge-danger">{item.faltam}</span>
+                        <span className="badge badge-danger">
+                          {formatarQuantidadeUnidade(item.faltam, item.unidade)}
+                        </span>
                       ) : (
                         <span className="badge badge-success">✓ Completo</span>
                       )}
@@ -377,9 +478,18 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
                             className="btn-secondary btn-mini"
                             onClick={() => {
                               setItemEditando(item.id);
+                              const unidadeConhecida = UNIDADES_ITEM.some(
+                                (opcao) => opcao.valor === item.unidade
+                              );
                               setDadosEditados({
                                 nome: item.nome,
                                 quantidade: String(item.necessario),
+                                unidade: item.unidade
+                                  ? unidadeConhecida
+                                    ? item.unidade
+                                    : 'outra'
+                                  : '',
+                                unidadeOutra: item.unidade && !unidadeConhecida ? item.unidade : '',
                               });
                             }}
                           >
@@ -426,7 +536,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
               doacoesEquipe.map((doacao) => (
                 <tr key={doacao.id}>
                   <td>{doacao.item_nome}</td>
-                  <td>{doacao.quantidade}</td>
+                  <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
                   <td>{doacao.doador_nome}</td>
                   <td>{doacao.doador_telefone}</td>
                   <td>{formatarDataHora(doacao.data_criacao)}</td>

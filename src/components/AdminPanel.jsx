@@ -7,6 +7,7 @@ import { criarCoordenador, redefinirPin } from '../services/auth';
 import { resumoEquipe } from '../utils/agregacoes';
 import {
   formatarDataHora,
+  formatarQuantidadeUnidade,
   normalizarNome,
   pinValido,
   rotuloTipo,
@@ -318,7 +319,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                   <tr key={doacao.id}>
                     <td>{formatarDataHora(doacao.data_criacao)}</td>
                     <td>{doacao.item_nome}</td>
-                    <td>{doacao.quantidade}</td>
+                    <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
                     <td>{equipe ? equipe.nome : 'Indefinida'}</td>
                     <td>{doacao.doador_nome}</td>
                     <td>{doacao.doador_telefone}</td>

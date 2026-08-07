@@ -198,8 +198,9 @@ COLLECTIONS QUE O APP USA
 =================================================================================
 
 equipes        { nome, ativa, criada_em, coordenador_id, atualizada_em }
-itens          { nome, quantidade, recebido, equipe_id, ativo, criado_em, atualizado_em }
-doacoes        { item_id, item_nome, quantidade, equipe_id, entregue,
+itens          { nome, unidade, quantidade, recebido, equipe_id, ativo,
+                 criado_em, atualizado_em }
+doacoes        { item_id, item_nome, item_unidade, quantidade, equipe_id, entregue,
                  data_criacao, data_entrega,
                  doador_nome, doador_email, doador_telefone,
                  doador_cep, doador_endereco, doador_numero, doador_referencia,
@@ -207,6 +208,11 @@ doacoes        { item_id, item_nome, quantidade, equipe_id, entregue,
 coordenadores  { nome, tipo, equipe_id, pin_hash, ativo, criado_em }
 
 tipo do coordenador: 'admin' | 'coord-geral' | 'coord-equipe'
+
+"itens.unidade" é escolhida de uma lista fixa no cadastro (kg, L, unidade,
+caixa, etc. — ver UNIDADES_ITEM em utils/formato.js), com opção "Outra"
+pra digitar livremente. Itens antigos sem essa lista de opção (de antes
+dessa mudança) ficam sem unidade — o app mostra só o número, sem quebrar.
 
 "itens.recebido" é a soma das doações daquele item, mantida em sincronia
 automaticamente: sempre que uma doação é gravada (services/db.js,
@@ -224,8 +230,12 @@ quantidade par divide igual entre as equipes; ímpar, o resto vai pra
 Cozinha; e nunca passa do que cada equipe ainda precisa (o excedente migra
 pra quem ainda tem espaço). Por isso, itens com o MESMO NOME em equipes
 diferentes precisam estar escritos de forma idêntica (maiúsculas/acentos à
-parte) — "Arroz (kg)" numa equipe e "arroz (Kg)" noutra já contam como o
-mesmo item; "Arroz 1kg" e "Arroz (kg)" não.
+parte) — "Arroz" numa equipe e "arroz" noutra já contam como o mesmo item;
+"Arroz" e "Arroz branco" não. Pela mesma razão, cadastre a MESMA UNIDADE
+pro mesmo nome em equipes diferentes — o catálogo do doador mostra a
+unidade do primeiro item encontrado com aquele nome, então "Arroz" em kg
+numa equipe e em sacos noutra vai exibir só uma das duas, e o número
+somado perde o sentido.
 
 Não é preciso criar nada à mão: o app cria as collections sozinho. Na primeira
 vez que abrir, sem nenhum coordenador cadastrado, ele mostra a tela

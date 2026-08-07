@@ -1,5 +1,6 @@
 import React from 'react';
 import BrandLogo from './BrandLogo';
+import { formatarQuantidadeUnidade } from '../utils/formato';
 
 /**
  * Situação de doações em colunas, uma por equipe — usado no Dashboard do
@@ -48,7 +49,8 @@ function RelatorioPorEquipe({ resumos }) {
                     <div className="linha-item-cabecalho">
                       <span className="linha-item-nome">{item.nome}</span>
                       <span className="linha-item-numeros">
-                        {item.recebido}/{item.necessario}
+                        {formatarQuantidadeUnidade(item.recebido, item.unidade)}/
+                        {formatarQuantidadeUnidade(item.necessario, item.unidade)}
                       </span>
                     </div>
                     <div className="progress-bar mini">
@@ -58,7 +60,9 @@ function RelatorioPorEquipe({ resumos }) {
                       />
                     </div>
                     <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
-                      {item.faltam > 0 ? `Faltam ${item.faltam}` : '✓ Completo'}
+                      {item.faltam > 0
+                        ? `Faltam ${formatarQuantidadeUnidade(item.faltam, item.unidade)}`
+                        : '✓ Completo'}
                     </span>
                   </div>
                 ))

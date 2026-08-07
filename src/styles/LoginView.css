@@ -2,7 +2,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 48px;
   min-height: 100vh;
   background: linear-gradient(135deg, #1B5E3F 0%, #8B4513 100%);
   padding: 20px;
@@ -15,6 +14,19 @@
   max-width: 500px;
   width: 100%;
   padding: 40px;
+}
+
+/* No celular o cartão é a tela inteira. Em telas largas ele vira a metade
+   direita de .tela-dividida — a borda e a sombra passam pro wrapper. */
+@media (min-width: 860px) {
+  .login-card {
+    max-width: none;
+    width: auto;
+    flex: 1 1 auto;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 48px;
+  }
 }
 
 .logo-section {

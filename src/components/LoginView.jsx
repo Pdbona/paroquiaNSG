@@ -109,68 +109,86 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
     </div>
   );
 
+  // Só aparece em telas largas (ver .tela-dividida/.painel-marca no CSS) —
+  // no celular a logo pequena dentro do cartão, acima, já cobre a marca.
+  const painelMarca = (
+    <div className="painel-marca">
+      <BrandLogo variante="lateral" />
+      <p className="painel-marca-legenda">
+        II Encontro de Jovens com Cristo
+        <br />
+        Paróquia Nossa Senhora de Guadalupe
+      </p>
+    </div>
+  );
+
   if (semCadastro) {
     return (
       <div className="login-container">
-        <BrandLogo variante="lateral" />
-        <div className="login-card">
-          {cabecalho}
+        <div className="tela-dividida">
+          {painelMarca}
 
-          <div className="login-formulario">
-            <h2>Primeiro acesso</h2>
-            <p className="texto-apoio">
-              Ainda não existe nenhum coordenador cadastrado. Crie o acesso do administrador
-              para começar.
-            </p>
+          <div className="login-card">
+            {cabecalho}
 
-            <div className="formulario-grupo">
-              <label>Nome do administrador</label>
-              <input
-                type="text"
-                value={nomeAdmin}
-                onChange={(evento) => setNomeAdmin(evento.target.value)}
-                placeholder="Ex: Pablo"
-              />
+            <div className="login-formulario">
+              <h2>Primeiro acesso</h2>
+              <p className="texto-apoio">
+                Ainda não existe nenhum coordenador cadastrado. Crie o acesso do administrador
+                para começar.
+              </p>
+
+              <div className="formulario-grupo">
+                <label>Nome do administrador</label>
+                <input
+                  type="text"
+                  value={nomeAdmin}
+                  onChange={(evento) => setNomeAdmin(evento.target.value)}
+                  placeholder="Ex: Pablo"
+                />
+              </div>
+
+              <div className="formulario-grupo">
+                <label>Criar PIN (4 a 6 dígitos)</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={pinAdmin}
+                  onChange={(evento) =>
+                    setPinAdmin(evento.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
+                  placeholder="****"
+                />
+              </div>
+
+              <div className="formulario-grupo">
+                <label>Repetir o PIN</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={pinAdminConfirma}
+                  onChange={(evento) =>
+                    setPinAdminConfirma(evento.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
+                  placeholder="****"
+                  onKeyDown={(evento) => evento.key === 'Enter' && handleCriarPrimeiroAdmin()}
+                />
+              </div>
+
+              {erro && <div className="alerta alerta-erro">{erro}</div>}
+
+              <button
+                className="btn-primary"
+                onClick={handleCriarPrimeiroAdmin}
+                disabled={entrando}
+              >
+                {entrando ? 'Criando...' : 'Criar acesso e entrar'}
+              </button>
+
+              <button className="btn-secondary" onClick={onVirarDoador}>
+                Só quero fazer uma doação
+              </button>
             </div>
-
-            <div className="formulario-grupo">
-              <label>Criar PIN (4 a 6 dígitos)</label>
-              <input
-                type="password"
-                inputMode="numeric"
-                value={pinAdmin}
-                onChange={(evento) => setPinAdmin(evento.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="****"
-              />
-            </div>
-
-            <div className="formulario-grupo">
-              <label>Repetir o PIN</label>
-              <input
-                type="password"
-                inputMode="numeric"
-                value={pinAdminConfirma}
-                onChange={(evento) =>
-                  setPinAdminConfirma(evento.target.value.replace(/\D/g, '').slice(0, 6))
-                }
-                placeholder="****"
-                onKeyDown={(evento) => evento.key === 'Enter' && handleCriarPrimeiroAdmin()}
-              />
-            </div>
-
-            {erro && <div className="alerta alerta-erro">{erro}</div>}
-
-            <button
-              className="btn-primary"
-              onClick={handleCriarPrimeiroAdmin}
-              disabled={entrando}
-            >
-              {entrando ? 'Criando...' : 'Criar acesso e entrar'}
-            </button>
-
-            <button className="btn-secondary" onClick={onVirarDoador}>
-              Só quero fazer uma doação
-            </button>
           </div>
         </div>
       </div>
@@ -180,75 +198,80 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
   if (tipo) {
     return (
       <div className="login-container">
-        <BrandLogo variante="lateral" />
-        <div className="login-card">
-          {cabecalho}
+        <div className="tela-dividida">
+          {painelMarca}
 
-          <div className="login-formulario">
-            <h2>Acesso {rotuloTipo(tipo)}</h2>
+          <div className="login-card">
+            {cabecalho}
 
-            {doTipo.length === 0 ? (
-              <>
-                <div className="alerta alerta-aviso">
-                  Nenhum {rotuloTipo(tipo).toLowerCase()} cadastrado. Peça ao administrador
-                  para criar o seu acesso.
-                </div>
-                <button className="btn-secondary" onClick={limpar}>
-                  Voltar
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="formulario-grupo">
-                  <label>Seu Nome</label>
-                  <select
-                    value={coordenadorId}
-                    onChange={(evento) => setCoordenadorId(evento.target.value)}
+            <div className="login-formulario">
+              <h2>Acesso {rotuloTipo(tipo)}</h2>
+
+              {doTipo.length === 0 ? (
+                <>
+                  <div className="alerta alerta-aviso">
+                    Nenhum {rotuloTipo(tipo).toLowerCase()} cadastrado. Peça ao administrador
+                    para criar o seu acesso.
+                  </div>
+                  <button className="btn-secondary" onClick={limpar}>
+                    Voltar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="formulario-grupo">
+                    <label>Seu Nome</label>
+                    <select
+                      value={coordenadorId}
+                      onChange={(evento) => setCoordenadorId(evento.target.value)}
+                    >
+                      <option value="">-- Selecione --</option>
+                      {doTipo.map((coordenador) => (
+                        <option key={coordenador.id} value={coordenador.id}>
+                          {coordenador.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="formulario-grupo">
+                    <label>PIN</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={pin}
+                      onChange={(evento) =>
+                        setPin(evento.target.value.replace(/\D/g, '').slice(0, 6))
+                      }
+                      placeholder="Digite o PIN"
+                      onKeyDown={(evento) => evento.key === 'Enter' && handleLogin()}
+                    />
+                  </div>
+
+                  {erro && <div className="alerta alerta-erro">{erro}</div>}
+                  {aviso && <div className="alerta alerta-info">{aviso}</div>}
+
+                  <button className="btn-primary" onClick={handleLogin} disabled={entrando}>
+                    {entrando ? 'Entrando...' : 'Entrar'}
+                  </button>
+
+                  <button
+                    className="link-esqueci"
+                    onClick={() =>
+                      setAviso(
+                        'Peça ao administrador para redefinir seu PIN no painel, aba Coordenadores.'
+                      )
+                    }
                   >
-                    <option value="">-- Selecione --</option>
-                    {doTipo.map((coordenador) => (
-                      <option key={coordenador.id} value={coordenador.id}>
-                        {coordenador.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    Esqueci meu PIN
+                  </button>
 
-                <div className="formulario-grupo">
-                  <label>PIN</label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    value={pin}
-                    onChange={(evento) => setPin(evento.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="Digite o PIN"
-                    onKeyDown={(evento) => evento.key === 'Enter' && handleLogin()}
-                  />
-                </div>
-
-                {erro && <div className="alerta alerta-erro">{erro}</div>}
-                {aviso && <div className="alerta alerta-info">{aviso}</div>}
-
-                <button className="btn-primary" onClick={handleLogin} disabled={entrando}>
-                  {entrando ? 'Entrando...' : 'Entrar'}
-                </button>
-
-                <button
-                  className="link-esqueci"
-                  onClick={() =>
-                    setAviso(
-                      'Peça ao administrador para redefinir seu PIN no painel, aba Coordenadores.'
-                    )
-                  }
-                >
-                  Esqueci meu PIN
-                </button>
-
-                <button className="btn-secondary" onClick={limpar}>
-                  Voltar
-                </button>
-              </>
-            )}
+                  <button className="btn-secondary" onClick={limpar}>
+                    Voltar
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -257,34 +280,37 @@ function LoginView({ coordenadores, onLogin, onVirarDoador }) {
 
   return (
     <div className="login-container">
-      <BrandLogo variante="lateral" />
-      <div className="login-card">
-        {cabecalho}
+      <div className="tela-dividida">
+        {painelMarca}
 
-        <div className="opcoes">
-          <button className="opcao-card admin" onClick={() => setTipo('admin')}>
-            <span className="icone">⚙️</span>
-            <span className="titulo">Administrador</span>
-            <span className="descricao">Gerenciar equipes e doações</span>
-          </button>
+        <div className="login-card">
+          {cabecalho}
 
-          <button className="opcao-card coord-geral" onClick={() => setTipo('coord-geral')}>
-            <span className="icone">👥</span>
-            <span className="titulo">Coordenador Geral</span>
-            <span className="descricao">Visualizar todas as equipes</span>
-          </button>
+          <div className="opcoes">
+            <button className="opcao-card admin" onClick={() => setTipo('admin')}>
+              <span className="icone">⚙️</span>
+              <span className="titulo">Administrador</span>
+              <span className="descricao">Gerenciar equipes e doações</span>
+            </button>
 
-          <button className="opcao-card coord-equipe" onClick={() => setTipo('coord-equipe')}>
-            <span className="icone">👤</span>
-            <span className="titulo">Coordenador de Equipe</span>
-            <span className="descricao">Gerenciar minha equipe</span>
-          </button>
+            <button className="opcao-card coord-geral" onClick={() => setTipo('coord-geral')}>
+              <span className="icone">👥</span>
+              <span className="titulo">Coordenador Geral</span>
+              <span className="descricao">Visualizar todas as equipes</span>
+            </button>
 
-          <button className="opcao-card doador" onClick={onVirarDoador}>
-            <span className="icone">🎁</span>
-            <span className="titulo">Fazer Doação</span>
-            <span className="descricao">Sem login necessário</span>
-          </button>
+            <button className="opcao-card coord-equipe" onClick={() => setTipo('coord-equipe')}>
+              <span className="icone">👤</span>
+              <span className="titulo">Coordenador de Equipe</span>
+              <span className="descricao">Gerenciar minha equipe</span>
+            </button>
+
+            <button className="opcao-card doador" onClick={onVirarDoador}>
+              <span className="icone">🎁</span>
+              <span className="titulo">Fazer Doação</span>
+              <span className="descricao">Sem login necessário</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

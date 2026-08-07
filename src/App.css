@@ -584,23 +584,68 @@ button:disabled:hover {
   margin: 0 auto 12px;
 }
 
-/* Fica no fluxo normal, como irmã do cartão dentro de um flex row — assim o
-   par (logo + cartão) é centralizado junto na tela, em vez da logo ficar
-   presa no canto esquerdo da janela. Ver .login-container/.donor-container. */
-.logo-guadalupe--lateral {
-  width: 340px;
-  height: auto;
-  max-height: 75vh;
-  opacity: 0.95;
-  pointer-events: none;
-  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.4));
-  flex-shrink: 0;
+/* Em telas largas o painel-marca já mostra a logo grande — evita repetir. */
+@media (min-width: 860px) {
+  .logo-guadalupe--cartao {
+    display: none;
+  }
 }
 
-/* Só cabe quando sobra espaço de sobra pro par logo+cartão lado a lado. */
-@media (max-width: 1200px) {
-  .logo-guadalupe--lateral {
-    display: none;
+/*
+ * Telas de login e doador: no celular é só o cartão (como sempre foi). Em
+ * telas largas, o cartão ganha um painel-irmão à esquerda com a logo — os
+ * dois viram UM bloco só (borda arredondada e sombra ficam no wrapper
+ * .tela-dividida, não mais em cada metade), em vez de logo e cartão
+ * flutuando soltos com um vão vazio entre eles.
+ */
+.tela-dividida {
+  width: 100%;
+  max-width: 500px;
+}
+
+.painel-marca {
+  display: none;
+}
+
+@media (min-width: 860px) {
+  .tela-dividida {
+    display: flex;
+    align-items: stretch;
+    max-width: 1200px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .painel-marca {
+    display: flex;
+    flex: 0 0 45%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    padding: 32px;
+    background: linear-gradient(160deg, #1B5E3F 0%, #12301f 100%);
+  }
+
+  .painel-marca .logo-guadalupe--lateral {
+    width: 85%;
+    max-width: 420px;
+    height: auto;
+    opacity: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+  }
+
+  .painel-marca-legenda {
+    color: #FFFFF0;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+    opacity: 0.9;
   }
 }
 
