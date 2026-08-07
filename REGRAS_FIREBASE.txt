@@ -1,0 +1,198 @@
+=================================================================================
+REGRAS DO FIRESTORE - APP COLETA DE DOAÇÕES
+=================================================================================
+
+ATENÇÃO: as regras da versão anterior deste arquivo BLOQUEAVAM o app inteiro.
+Elas tinham "allow create, update, delete: if false" em equipes, itens e
+coordenadores, o que impede criar equipe, cadastrar item e cadastrar
+coordenador. E exigiam "request.auth != null" para ler as doações, coisa que
+não acontecia porque o app não fazia login no Firebase. Use as regras abaixo.
+
+---------------------------------------------------------------------------------
+ESCOLHA UMA DAS DUAS OPÇÕES
+---------------------------------------------------------------------------------
+
+OPÇÃO A - RECOMENDADA (esconde os dados dos doadores de quem não usa o app)
+   Exige um passo a mais no Console, mas protege nome, telefone e endereço
+   de quem doou.
+
+   PASSO 1: Firebase Console > Authentication > Sign-in method
+            > ativar o provedor "Anônimo" (Anonymous) > Salvar.
+
+   PASSO 2: colar o BLOCO A abaixo em Firestore Database > Regras > Publicar.
+
+   Se esquecer o PASSO 1, o app mostra "Permissão negada" e não carrega nada.
+
+OPÇÃO B - MÍNIMA (funciona sem mexer em Authentication)
+   Só colar o BLOCO B. O app funciona igual, MAS os dados dos doadores ficam
+   legíveis por qualquer pessoa que descubra o ID do projeto. Como são dados
+   pessoais (LGPD), prefira a Opção A se der tempo.
+
+=================================================================================
+BLOCO A - COLE ISTO NO FIREBASE (opção recomendada, com login anônimo ativado)
+=================================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // O login por PIN acontece no navegador, não no Firebase. O login anônimo
+    // serve só para provar que a chamada veio do app.
+    function doApp() {
+      return request.auth != null;
+    }
+
+    // Janela do evento (28-30/08/2026) com folga. Depois disso o banco
+    // congela sozinho e ninguém consegue mais escrever.
+    function dentroDoPrazo() {
+      return request.time < timestamp.date(2026, 9, 30);
+    }
+
+    function nomeValido(valor, limite) {
+      return valor is string && valor.size() > 0 && valor.size() <= limite;
+    }
+
+    function quantidadeValida(valor) {
+      return valor is number && valor > 0 && valor <= 100000;
+    }
+
+    // Catálogo público: o doador precisa ver os itens sem fazer login.
+    match /equipes/{equipeId} {
+      allow read: if true;
+      allow create, update: if doApp() && dentroDoPrazo()
+                            && nomeValido(request.resource.data.nome, 60);
+      allow delete: if doApp() && dentroDoPrazo();
+    }
+
+    match /itens/{itemId} {
+      allow read: if true;
+      allow create, update: if doApp() && dentroDoPrazo()
+                            && nomeValido(request.resource.data.nome, 80)
+                            && quantidadeValida(request.resource.data.quantidade);
+      allow delete: if doApp() && dentroDoPrazo();
+    }
+
+    // Dados pessoais dos doadores: leitura só para quem está no app.
+    match /doacoes/{doacaoId} {
+      allow read: if doApp();
+      allow create: if doApp() && dentroDoPrazo()
+                    && request.resource.data.keys().hasAll(
+                         ['item_id', 'equipe_id', 'quantidade',
+                          'doador_nome', 'doador_telefone'])
+                    && nomeValido(request.resource.data.doador_nome, 120)
+                    && quantidadeValida(request.resource.data.quantidade);
+      allow update: if doApp() && dentroDoPrazo();
+      allow delete: if false;
+    }
+
+    // A tela de login precisa listar os nomes antes de qualquer login.
+    // O PIN nunca é gravado aqui em texto puro, só o hash (campo pin_hash).
+    match /coordenadores/{coordenadorId} {
+      allow read: if true;
+      allow create, update, delete: if doApp() && dentroDoPrazo();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+=================================================================================
+BLOCO B - COLE ISTO NO FIREBASE (opção mínima, sem ativar login anônimo)
+=================================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function dentroDoPrazo() {
+      return request.time < timestamp.date(2026, 9, 30);
+    }
+
+    function nomeValido(valor, limite) {
+      return valor is string && valor.size() > 0 && valor.size() <= limite;
+    }
+
+    function quantidadeValida(valor) {
+      return valor is number && valor > 0 && valor <= 100000;
+    }
+
+    match /equipes/{equipeId} {
+      allow read: if true;
+      allow create, update: if dentroDoPrazo()
+                            && nomeValido(request.resource.data.nome, 60);
+      allow delete: if dentroDoPrazo();
+    }
+
+    match /itens/{itemId} {
+      allow read: if true;
+      allow create, update: if dentroDoPrazo()
+                            && nomeValido(request.resource.data.nome, 80)
+                            && quantidadeValida(request.resource.data.quantidade);
+      allow delete: if dentroDoPrazo();
+    }
+
+    match /doacoes/{doacaoId} {
+      allow read: if true;
+      allow create: if dentroDoPrazo()
+                    && request.resource.data.keys().hasAll(
+                         ['item_id', 'equipe_id', 'quantidade',
+                          'doador_nome', 'doador_telefone'])
+                    && nomeValido(request.resource.data.doador_nome, 120)
+                    && quantidadeValida(request.resource.data.quantidade);
+      allow update: if dentroDoPrazo();
+      allow delete: if false;
+    }
+
+    match /coordenadores/{coordenadorId} {
+      allow read: if true;
+      allow create, update, delete: if dentroDoPrazo();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+=================================================================================
+O QUE ESTAS REGRAS NÃO RESOLVEM (saiba o risco antes de publicar)
+=================================================================================
+
+O app não tem servidor. Todo o controle de quem é admin e quem é coordenador
+acontece no navegador, então o Firestore não consegue distinguir um do outro.
+Na prática: quem abrir o site e souber mexer no console do navegador consegue
+escrever no banco, mesmo sem PIN. As regras acima reduzem o estrago
+(validam formato, impedem apagar doações, congelam tudo depois de 30/09/2026),
+mas não impedem isso.
+
+Para o uso previsto — coleta de doações de uma paróquia, por três semanas —
+esse risco é aceitável. O que fecharia de vez seria mover as escritas para
+Cloud Functions com Firebase Auth de verdade, o que não cabe no prazo.
+
+Duas recomendações práticas:
+1. Depois do evento, troque a data de dentroDoPrazo() para uma data passada.
+   Isso deixa o banco só de leitura.
+2. Exporte os dados (Firestore > Exportar) antes de desligar qualquer coisa.
+
+=================================================================================
+COLLECTIONS QUE O APP USA
+=================================================================================
+
+equipes        { nome, ativa, criada_em, coordenador_id, atualizada_em }
+itens          { nome, quantidade, equipe_id, ativo, criado_em, atualizado_em }
+doacoes        { item_id, item_nome, quantidade, equipe_id, entregue,
+                 data_criacao, data_entrega,
+                 doador_nome, doador_email, doador_telefone,
+                 doador_cep, doador_endereco, doador_bairro,
+                 doador_cidade, doador_estado }
+coordenadores  { nome, tipo, equipe_id, pin_hash, ativo, criado_em }
+
+tipo do coordenador: 'admin' | 'coord-geral' | 'coord-equipe'
+
+Não é preciso criar nada à mão: o app cria as collections sozinho. Na primeira
+vez que abrir, sem nenhum coordenador cadastrado, ele mostra a tela
+"Primeiro acesso" para você criar o administrador e escolher o PIN.
