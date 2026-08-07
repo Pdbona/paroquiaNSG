@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
+import RelatorioPorEquipe from './RelatorioPorEquipe';
 import { adicionar, atualizar, remover, mensagemDeErro, MODO_MOCK } from '../services/db';
 import { criarCoordenador, redefinirPin } from '../services/auth';
 import { resumoEquipe } from '../utils/agregacoes';
@@ -265,20 +266,14 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
     );
     const equipesSemItens = resumos.filter((resumo) => resumo.totalItens === 0);
 
-    // Um card por item, com a equipe como etiqueta — não por equipe com uma
-    // barra só, que escondia a situação de cada item.
-    const itensComEquipe = resumos.flatMap((resumo) =>
-      resumo.itens.map((item) => ({ ...item, equipeNome: resumo.equipe.nome }))
-    );
-
     return (
       <div>
-        <p className="resumo-compacto">
+        <p className="resumo-compacto nao-imprimir">
           📦 {itens.length} item(ns) cadastrado(s) em {equipes.length} equipe(s)
         </p>
 
         {(semNadaRecebido.length > 0 || equipesSemItens.length > 0) && (
-          <div className="alerta alerta-aviso">
+          <div className="alerta alerta-aviso nao-imprimir">
             <strong>⚠️ Atenção:</strong>
             <ul className="lista-alertas">
               {equipesSemItens.map((resumo) => (
@@ -295,36 +290,10 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
           </div>
         )}
 
-        <h3 className="titulo-secao">Situação por Item</h3>
-        {itensComEquipe.length === 0 ? (
-          <p className="texto-vazio">Nenhum item cadastrado ainda.</p>
-        ) : (
-          <div className="grade-itens-dash">
-            {itensComEquipe.map((item) => (
-              <div key={item.id} className="item-dash-card">
-                <span className="item-dash-equipe">{item.equipeNome}</span>
-                <h4>{item.nome}</h4>
-                <div className="item-dash-numeros">
-                  <span>
-                    Necessário <strong>{item.necessario}</strong>
-                  </span>
-                  <span>
-                    Recebido <strong>{item.recebido}</strong>
-                  </span>
-                </div>
-                <div className="progress-bar mini">
-                  <div className="progress-bar-fill" style={{ width: `${item.progresso}%` }} />
-                </div>
-                <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
-                  {item.faltam > 0 ? `Faltam ${item.faltam}` : '✓ Meta atingida'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <RelatorioPorEquipe resumos={resumos} />
 
-        <h3 className="titulo-secao">Doações Recentes</h3>
-        <table className="tabela">
+        <h3 className="titulo-secao nao-imprimir">Doações Recentes</h3>
+        <table className="tabela nao-imprimir">
           <thead>
             <tr>
               <th>Data</th>
@@ -679,7 +648,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
 
   return (
     <div className="admin-container">
-      <div className="app-header">
+      <div className="app-header nao-imprimir">
         <div className="titulo-cabecalho">
           <BrandLogo variante="cabecalho" />
           <h1>🔐 Painel Administrativo</h1>
@@ -691,7 +660,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
       </div>
 
       <div className="app-main">
-        <div className="abas">
+        <div className="abas nao-imprimir">
           <button
             className={`aba ${aba === 'dashboard' ? 'ativa' : ''}`}
             onClick={() => setAba('dashboard')}

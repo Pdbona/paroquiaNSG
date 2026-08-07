@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
+import RelatorioPorEquipe from './RelatorioPorEquipe';
 import { resumoEquipe } from '../utils/agregacoes';
 import { formatarDataHora } from '../utils/formato';
 
@@ -10,16 +11,6 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
   const resumos = useMemo(
     () => equipes.map((equipe) => resumoEquipe(equipe, itens, doacoes)),
     [equipes, itens, doacoes]
-  );
-
-  // Um card por item, com a equipe como etiqueta — mais fácil de escanear
-  // do que uma barra de progresso por equipe inteira.
-  const itensComEquipe = useMemo(
-    () =>
-      resumos.flatMap((resumo) =>
-        resumo.itens.map((item) => ({ ...item, equipeNome: resumo.equipe.nome }))
-      ),
-    [resumos]
   );
 
   const doacoesFiltradas = useMemo(() => {
@@ -36,7 +27,7 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
 
   return (
     <div className="admin-container">
-      <div className="app-header">
+      <div className="app-header nao-imprimir">
         <div className="titulo-cabecalho">
           <BrandLogo variante="cabecalho" />
           <h1>👥 Dashboard Coordenador Geral</h1>
@@ -48,39 +39,13 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
       </div>
 
       <div className="app-main">
-        <p className="resumo-compacto">
+        <p className="resumo-compacto nao-imprimir">
           📦 {itens.length} item(ns) cadastrado(s) em {equipes.length} equipe(s)
         </p>
 
-        <h2 className="titulo-secao">Situação por Item</h2>
-        {itensComEquipe.length === 0 ? (
-          <p className="texto-vazio">Nenhum item cadastrado ainda.</p>
-        ) : (
-          <div className="grade-itens-dash">
-            {itensComEquipe.map((item) => (
-              <div key={item.id} className="item-dash-card">
-                <span className="item-dash-equipe">{item.equipeNome}</span>
-                <h4>{item.nome}</h4>
-                <div className="item-dash-numeros">
-                  <span>
-                    Necessário <strong>{item.necessario}</strong>
-                  </span>
-                  <span>
-                    Recebido <strong>{item.recebido}</strong>
-                  </span>
-                </div>
-                <div className="progress-bar mini">
-                  <div className="progress-bar-fill" style={{ width: `${item.progresso}%` }} />
-                </div>
-                <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
-                  {item.faltam > 0 ? `Faltam ${item.faltam}` : '✓ Meta atingida'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <RelatorioPorEquipe resumos={resumos} />
 
-        <div className="cabecalho-equipe">
+        <div className="cabecalho-equipe nao-imprimir">
           <h2>📊 Todas as Doações</h2>
           <select
             value={filtroEquipe}
@@ -96,7 +61,7 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
           </select>
         </div>
 
-        <table className="tabela">
+        <table className="tabela nao-imprimir">
           <thead>
             <tr>
               <th>Data</th>

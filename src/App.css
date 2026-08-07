@@ -478,6 +478,53 @@ button:disabled:hover {
     background-color: #eee !important;
     color: #000 !important;
   }
+
+  /* Letreiro do relatório: só existe no papel, com a logo grande no topo. */
+  .cabecalho-impressao {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #1B5E3F;
+  }
+
+  .cabecalho-impressao .logo-impressao {
+    width: 60px;
+    height: 60px;
+    box-shadow: none;
+    background: none;
+    padding: 0;
+  }
+
+  .cabecalho-impressao h2 {
+    color: #1B5E3F !important;
+    font-size: 18px;
+    margin: 0 0 4px;
+  }
+
+  .cabecalho-impressao p {
+    color: #555 !important;
+    font-size: 12px;
+    margin: 0;
+  }
+
+  .colunas-equipes {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .coluna-equipe {
+    box-shadow: none;
+    border: 1px solid #ddd;
+    border-top: 3px solid #D4AF37;
+    break-inside: avoid;
+  }
+
+  .progress-bar-fill {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 @media (max-width: 768px) {
@@ -537,23 +584,21 @@ button:disabled:hover {
   margin: 0 auto 12px;
 }
 
+/* Fica no fluxo normal, como irmã do cartão dentro de um flex row — assim o
+   par (logo + cartão) é centralizado junto na tela, em vez da logo ficar
+   presa no canto esquerdo da janela. Ver .login-container/.donor-container. */
 .logo-guadalupe--lateral {
-  position: fixed;
-  top: 50%;
-  left: 24px;
-  transform: translateY(-50%);
-  width: 200px;
+  width: 340px;
   height: auto;
-  max-height: 70vh;
+  max-height: 75vh;
   opacity: 0.95;
   pointer-events: none;
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.4));
-  z-index: 0;
+  flex-shrink: 0;
 }
 
-/* Só cabe quando sobra espaço nas laterais do cartão centralizado (o mais
-   largo, donor-card, tem 600px + folga — 1300px garante que não encoste). */
-@media (max-width: 1300px) {
+/* Só cabe quando sobra espaço de sobra pro par logo+cartão lado a lado. */
+@media (max-width: 1200px) {
   .logo-guadalupe--lateral {
     display: none;
   }

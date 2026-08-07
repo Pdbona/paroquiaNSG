@@ -356,54 +356,6 @@
   margin-bottom: 15px;
 }
 
-.grade-itens-dash {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px;
-  margin-bottom: 10px;
-}
-
-.item-dash-card {
-  background: white;
-  border-radius: 8px;
-  padding: 14px 16px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  border-left: 4px solid #D4AF37;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.item-dash-equipe {
-  align-self: flex-start;
-  background: #eef3f0;
-  color: #1B5E3F;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.item-dash-card h4 {
-  color: #1B5E3F;
-  font-size: 15px;
-  margin: 0;
-}
-
-.item-dash-numeros {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #555;
-}
-
-.item-dash-numeros strong {
-  color: #1B5E3F;
-  font-size: 13px;
-}
-
 .progress-bar.mini {
   height: 8px;
   margin-top: 0;
@@ -415,14 +367,82 @@
   font-weight: 600;
 }
 
-.item-dash-card .texto-faltantes {
-  margin-top: 0;
-  font-size: 12px;
+/* -------------------------------------------- Relatório por equipe (colunas) */
+
+.relatorio-equipes {
+  margin-bottom: 10px;
+}
+
+/* Só aparece no papel — ver @media print em App.css. */
+.cabecalho-impressao {
+  display: none;
+}
+
+.colunas-equipes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.coluna-equipe {
+  background: white;
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-top: 4px solid #D4AF37;
+}
+
+.coluna-equipe-titulo {
+  color: #1B5E3F;
+  font-size: 16px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.coluna-equipe-vazia {
+  color: #999;
+  font-size: 13px;
+}
+
+.linha-item-coluna {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.linha-item-coluna:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.linha-item-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.linha-item-nome {
   font-weight: 600;
+  color: #1B5E3F;
+}
+
+.linha-item-numeros {
+  color: #555;
+  white-space: nowrap;
+}
+
+.linha-item-coluna .texto-faltantes,
+.linha-item-coluna .texto-completo {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 @media (max-width: 480px) {
-  .grade-itens-dash {
-    grid-template-columns: 1fr 1fr;
+  .colunas-equipes {
+    grid-template-columns: 1fr;
   }
 }
