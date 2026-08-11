@@ -1,6 +1,7 @@
 {
-  "name": "ejc-doacoes",
+  "name": "ejc-app-doacoes",
   "version": "1.0.0",
+  "description": "App de coleta de doações — SBS Solution — II Encontro de Jovens com Cristo, Paróquia Nossa Senhora de Guadalupe",
   "private": true,
   "homepage": "./",
   "dependencies": {

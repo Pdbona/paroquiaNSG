@@ -1,5 +1,5 @@
 =================================================================================
-REGRAS DO FIRESTORE - APP COLETA DE DOAÇÕES
+REGRAS DO FIRESTORE - APP COLETA DE DOAÇÕES (ejc-app-doacoes)
 =================================================================================
 
 ATENÇÃO: as regras da versão anterior deste arquivo BLOQUEAVAM o app inteiro.
@@ -7,6 +7,16 @@ Elas tinham "allow create, update, delete: if false" em equipes, itens e
 coordenadores, o que impede criar equipe, cadastrar item e cadastrar
 coordenador. E exigiam "request.auth != null" para ler as doações, coisa que
 não acontecia porque o app não fazia login no Firebase. Use as regras abaixo.
+
+IMPORTANTE — projeto Firebase compartilhado: "paroquiansg-2f648" vai hospedar
+mais de um app do EJC. Pra dados de apps diferentes não colidirem no mesmo
+banco, TODAS as collections deste app moram sob o caminho fixo
+"apps/doacoes/..." em vez de na raiz do banco (ex: "apps/doacoes/equipes" em
+vez de só "equipes"). Isso é só o caminho — o nome de cada collection lógica
+(equipes, itens, doacoes, coordenadores) continua igual. Quando o próximo app
+do EJC for criado nesse mesmo projeto, ele deve usar "apps/<nome-do-app>/..."
+e colar as regras dele NUM BLOCO À PARTE, abaixo do bloco deste app — nunca
+substituindo as regras abaixo, senão este app perde o acesso ao banco.
 
 ---------------------------------------------------------------------------------
 ESCOLHA UMA DAS DUAS OPÇÕES
@@ -67,14 +77,15 @@ service cloud.firestore {
     }
 
     // Catálogo público: o doador precisa ver os itens sem fazer login.
-    match /equipes/{equipeId} {
+    // Caminho com prefixo fixo "apps/doacoes/..." — ver nota no topo do arquivo.
+    match /apps/doacoes/equipes/{equipeId} {
       allow read: if true;
       allow create, update: if doApp() && dentroDoPrazo()
                             && nomeValido(request.resource.data.nome, 60);
       allow delete: if doApp() && dentroDoPrazo();
     }
 
-    match /itens/{itemId} {
+    match /apps/doacoes/itens/{itemId} {
       allow read: if true;
       allow create, update: if doApp() && dentroDoPrazo()
                             && nomeValido(request.resource.data.nome, 80)
@@ -84,7 +95,7 @@ service cloud.firestore {
     }
 
     // Dados pessoais dos doadores: leitura só para quem está no app.
-    match /doacoes/{doacaoId} {
+    match /apps/doacoes/doacoes/{doacaoId} {
       allow read: if doApp();
       allow create: if doApp() && dentroDoPrazo()
                     && request.resource.data.keys().hasAll(
@@ -98,11 +109,14 @@ service cloud.firestore {
 
     // A tela de login precisa listar os nomes antes de qualquer login.
     // O PIN nunca é gravado aqui em texto puro, só o hash (campo pin_hash).
-    match /coordenadores/{coordenadorId} {
+    match /apps/doacoes/coordenadores/{coordenadorId} {
       allow read: if true;
       allow create, update, delete: if doApp() && dentroDoPrazo();
     }
 
+    // Deixe este catch-all por último. Ele nega qualquer caminho que não
+    // tenha um "match" específico acima — inclusive de outros apps do EJC
+    // que ainda não ganharam o próprio bloco de regras.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -134,14 +148,14 @@ service cloud.firestore {
       return valor == null || (valor is number && valor >= 0 && valor <= 100000);
     }
 
-    match /equipes/{equipeId} {
+    match /apps/doacoes/equipes/{equipeId} {
       allow read: if true;
       allow create, update: if dentroDoPrazo()
                             && nomeValido(request.resource.data.nome, 60);
       allow delete: if dentroDoPrazo();
     }
 
-    match /itens/{itemId} {
+    match /apps/doacoes/itens/{itemId} {
       allow read: if true;
       allow create, update: if dentroDoPrazo()
                             && nomeValido(request.resource.data.nome, 80)
@@ -150,7 +164,7 @@ service cloud.firestore {
       allow delete: if dentroDoPrazo();
     }
 
-    match /doacoes/{doacaoId} {
+    match /apps/doacoes/doacoes/{doacaoId} {
       allow read: if true;
       allow create: if dentroDoPrazo()
                     && request.resource.data.keys().hasAll(
@@ -162,7 +176,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /coordenadores/{coordenadorId} {
+    match /apps/doacoes/coordenadores/{coordenadorId} {
       allow read: if true;
       allow create, update, delete: if dentroDoPrazo();
     }
@@ -194,18 +208,19 @@ Duas recomendações práticas:
 2. Exporte os dados (Firestore > Exportar) antes de desligar qualquer coisa.
 
 =================================================================================
-COLLECTIONS QUE O APP USA
+COLLECTIONS QUE O APP USA (todas sob apps/doacoes/...)
 =================================================================================
 
-equipes        { nome, ativa, criada_em, coordenador_id, atualizada_em }
-itens          { nome, unidade, quantidade, recebido, equipe_id, ativo,
-                 criado_em, atualizado_em }
-doacoes        { item_id, item_nome, item_unidade, quantidade, equipe_id, entregue,
-                 data_criacao, data_entrega,
-                 doador_nome, doador_email, doador_telefone,
-                 doador_cep, doador_endereco, doador_numero, doador_referencia,
-                 doador_bairro, doador_cidade, doador_estado }
-coordenadores  { nome, tipo, equipe_id, pin_hash, ativo, criado_em }
+apps/doacoes/equipes        { nome, ativa, criada_em, coordenador_id, atualizada_em }
+apps/doacoes/itens          { nome, unidade, quantidade, recebido, equipe_id, ativo,
+                               criado_em, atualizado_em }
+apps/doacoes/doacoes        { item_id, item_nome, item_unidade, quantidade, equipe_id,
+                               entregue, data_criacao, data_entrega,
+                               doador_nome, doador_email, doador_telefone,
+                               doador_cep, doador_endereco, doador_numero,
+                               doador_referencia, doador_bairro, doador_cidade,
+                               doador_estado }
+apps/doacoes/coordenadores  { nome, tipo, equipe_id, pin_hash, ativo, criado_em }
 
 tipo do coordenador: 'admin' | 'coord-geral' | 'coord-equipe'
 

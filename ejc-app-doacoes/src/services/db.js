@@ -31,6 +31,14 @@ import {
 export const MODO_MOCK = !firebaseConfigurado && process.env.NODE_ENV === 'development';
 export const CONFIG_AUSENTE = !firebaseConfigurado && !MODO_MOCK;
 
+// O projeto Firebase "paroquiansg-2f648" é compartilhado com outros apps do
+// EJC. Para não colidir dados de apps diferentes no mesmo banco, tudo deste
+// app mora sob o documento "apps/doacoes" — cada collection lógica
+// (equipes, itens, doacoes, coordenadores) vira uma subcollection dali. Ver
+// REGRAS_FIREBASE.txt, que espelha esse mesmo caminho.
+const NAMESPACE_APP = 'apps/doacoes';
+const caminhoColecao = (colecao) => `${NAMESPACE_APP}/${colecao}`;
+
 const ERRO_SEM_CONFIG = new Error(
   'Firebase não configurado: crie o arquivo .env.local com as chaves do projeto.'
 );
@@ -68,7 +76,7 @@ export function assinarColecao(colecao, aoReceber, aoFalhar) {
   }
 
   return onSnapshot(
-    collection(db, colecao),
+    collection(db, caminhoColecao(colecao)),
     (snapshot) => aoReceber(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
     (erro) => {
       console.error(`Erro ao ouvir a collection "${colecao}":`, erro);
@@ -81,7 +89,7 @@ export async function listar(colecao) {
   if (MODO_MOCK) return mockListar(colecao);
   if (CONFIG_AUSENTE) throw ERRO_SEM_CONFIG;
 
-  const snapshot = await getDocs(collection(db, colecao));
+  const snapshot = await getDocs(collection(db, caminhoColecao(colecao)));
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
@@ -95,10 +103,10 @@ export async function adicionar(colecao, dados) {
 
   const { id, ...corpo } = dados;
   if (id) {
-    await setDoc(doc(db, colecao, id), corpo);
+    await setDoc(doc(db, caminhoColecao(colecao), id), corpo);
     return id;
   }
-  const referencia = await addDoc(collection(db, colecao), corpo);
+  const referencia = await addDoc(collection(db, caminhoColecao(colecao)), corpo);
   return referencia.id;
 }
 
@@ -106,7 +114,7 @@ export async function atualizar(colecao, id, dados) {
   if (MODO_MOCK) return mockAtualizar(colecao, id, dados);
   if (CONFIG_AUSENTE) throw ERRO_SEM_CONFIG;
 
-  await updateDoc(doc(db, colecao, id), dados);
+  await updateDoc(doc(db, caminhoColecao(colecao), id), dados);
 }
 
 /**
@@ -128,7 +136,7 @@ export async function registrarDoacaoRateada(alocacoes, dadosDoador) {
   const lote = writeBatch(db);
 
   alocacoes.forEach((alocacao) => {
-    const doacaoRef = doc(collection(db, 'doacoes'));
+    const doacaoRef = doc(collection(db, caminhoColecao('doacoes')));
     lote.set(doacaoRef, {
       ...dadosDoador,
       item_id: alocacao.itemId,
@@ -137,7 +145,7 @@ export async function registrarDoacaoRateada(alocacoes, dadosDoador) {
       equipe_id: alocacao.equipeId,
       quantidade: alocacao.quantidade,
     });
-    lote.update(doc(db, 'itens', alocacao.itemId), {
+    lote.update(doc(db, caminhoColecao('itens'), alocacao.itemId), {
       recebido: increment(alocacao.quantidade),
     });
   });
@@ -149,5 +157,5 @@ export async function remover(colecao, id) {
   if (MODO_MOCK) return mockRemover(colecao, id);
   if (CONFIG_AUSENTE) throw ERRO_SEM_CONFIG;
 
-  await deleteDoc(doc(db, colecao, id));
+  await deleteDoc(doc(db, caminhoColecao(colecao), id));
 }
