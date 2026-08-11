@@ -13,6 +13,7 @@ import {
   normalizarNome,
   pinValido,
   rotuloTipo,
+  UNIDADES_ITEM,
 } from '../utils/formato';
 
 function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) {
@@ -22,6 +23,16 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   const [salvando, setSalvando] = useState(false);
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
   const [mostrarImportar, setMostrarImportar] = useState(false);
+
+  // Itens
+  const [filtroEquipeItens, setFiltroEquipeItens] = useState('');
+  const [itemEditando, setItemEditando] = useState(null);
+  const [dadosItemEditado, setDadosItemEditado] = useState({
+    nome: '',
+    quantidade: '',
+    unidade: '',
+    unidadeOutra: '',
+  });
 
   // Equipes
   const [novaEquipe, setNovaEquipe] = useState('');
@@ -622,6 +633,58 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
 
   // ------------------------------------------------------------------ Itens
 
+  // Resolve o valor final da unidade: o que veio do select, ou o texto
+  // livre quando a pessoa escolheu "Outra".
+  const resolverUnidadeItem = (selecionada, textoLivre) => {
+    if (selecionada === 'outra') return textoLivre.trim();
+    return selecionada;
+  };
+
+  const iniciarEdicaoItem = (item) => {
+    const unidadeConhecida = UNIDADES_ITEM.some((opcao) => opcao.valor === item.unidade);
+    setItemEditando(item.id);
+    setDadosItemEditado({
+      nome: item.nome,
+      quantidade: String(item.quantidade),
+      unidade: item.unidade ? (unidadeConhecida ? item.unidade : 'outra') : '',
+      unidadeOutra: item.unidade && !unidadeConhecida ? item.unidade : '',
+    });
+  };
+
+  const salvarItemEditado = async (item) => {
+    const nome = dadosItemEditado.nome.trim();
+    const quantidade = parseInt(dadosItemEditado.quantidade, 10);
+    const unidade = resolverUnidadeItem(dadosItemEditado.unidade, dadosItemEditado.unidadeOutra);
+
+    if (!nome) {
+      avisar('', 'O nome do item não pode ficar vazio');
+      return;
+    }
+    if (!dadosItemEditado.unidade) {
+      avisar('', 'Selecione a unidade do item');
+      return;
+    }
+    if (dadosItemEditado.unidade === 'outra' && !unidade) {
+      avisar('', 'Digite a unidade do item');
+      return;
+    }
+    if (!Number.isFinite(quantidade) || quantidade <= 0) {
+      avisar('', 'Digite uma quantidade maior que zero');
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      await atualizar('itens', item.id, { nome, quantidade, unidade, atualizado_em: new Date() });
+      setItemEditando(null);
+      avisar('Item atualizado!');
+    } catch (problema) {
+      avisar('', `Erro ao atualizar: ${mensagemDeErro(problema)}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const deletarItem = async (item) => {
     const temDoacao = doacoes.some((doacao) => doacao.item_id === item.id);
     if (temDoacao) {
@@ -641,64 +704,178 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
     }
   };
 
-  const renderItens = () => (
-    <div>
-      <div className="form-secao-cabecalho">
-        <h3>Itens de todas as equipes</h3>
-        <button className="btn-dourado btn-mini" onClick={() => setMostrarImportar(true)}>
-          📋 Importar lista
-        </button>
-      </div>
-      <p className="texto-apoio">
-        Cadastro em massa: cole uma lista (ou carregue um .csv/.txt) em vez de criar item por
-        item. Escolha a equipe de destino na própria janela de importação.
-      </p>
+  const renderItens = () => {
+    const itensFiltrados = filtroEquipeItens
+      ? itens.filter((item) => item.equipe_id === filtroEquipeItens)
+      : itens;
 
-      {mensagens}
+    return (
+      <div>
+        <div className="form-secao-cabecalho">
+          <h3>Itens</h3>
+          <button className="btn-dourado btn-mini" onClick={() => setMostrarImportar(true)}>
+            📋 Importar lista
+          </button>
+        </div>
+        <p className="texto-apoio">
+          Cadastro em massa: cole uma lista (ou carregue um .csv/.txt) em vez de criar item por
+          item. Escolha a equipe de destino na própria janela de importação.
+        </p>
 
-      <table className="tabela">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Equipe</th>
-            <th>Meta</th>
-            <th>Recebido</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {itens.length === 0 ? (
+        <div className="formulario-grupo">
+          <label>Filtrar por equipe</label>
+          <select
+            value={filtroEquipeItens}
+            onChange={(evento) => setFiltroEquipeItens(evento.target.value)}
+          >
+            <option value="">Todas as equipes</option>
+            {equipes.map((equipe) => (
+              <option key={equipe.id} value={equipe.id}>
+                {equipe.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {mensagens}
+
+        <table className="tabela">
+          <thead>
             <tr>
-              <td colSpan="5" className="celula-vazia">
-                Nenhum item cadastrado em nenhuma equipe ainda
-              </td>
+              <th>Item</th>
+              <th>Equipe</th>
+              <th>Meta</th>
+              <th>Recebido</th>
+              <th>Ações</th>
             </tr>
-          ) : (
-            itens.map((item) => {
-              const equipe = equipes.find((registro) => registro.id === item.equipe_id);
-              return (
-                <tr key={item.id}>
-                  <td>{item.nome}</td>
-                  <td>{equipe ? equipe.nome : '-'}</td>
-                  <td>{formatarQuantidadeUnidade(item.quantidade, item.unidade)}</td>
-                  <td>{formatarQuantidadeUnidade(item.recebido || 0, item.unidade)}</td>
-                  <td className="celula-acoes">
-                    <button
-                      className="btn-danger btn-mini"
-                      onClick={() => deletarItem(item)}
-                      disabled={salvando}
-                    >
-                      Apagar
-                    </button>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+          </thead>
+          <tbody>
+            {itensFiltrados.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="celula-vazia">
+                  {itens.length === 0
+                    ? 'Nenhum item cadastrado em nenhuma equipe ainda'
+                    : 'Nenhum item cadastrado nesta equipe'}
+                </td>
+              </tr>
+            ) : (
+              itensFiltrados.map((item) => {
+                const equipe = equipes.find((registro) => registro.id === item.equipe_id);
+                const emEdicao = itemEditando === item.id;
+
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      {emEdicao ? (
+                        <input
+                          type="text"
+                          value={dadosItemEditado.nome}
+                          onChange={(evento) =>
+                            setDadosItemEditado({ ...dadosItemEditado, nome: evento.target.value })
+                          }
+                          autoFocus
+                        />
+                      ) : (
+                        item.nome
+                      )}
+                    </td>
+                    <td>{equipe ? equipe.nome : '-'}</td>
+                    <td>
+                      {emEdicao ? (
+                        <div className="edicao-quantidade-unidade">
+                          <input
+                            type="number"
+                            min="1"
+                            value={dadosItemEditado.quantidade}
+                            onChange={(evento) =>
+                              setDadosItemEditado({
+                                ...dadosItemEditado,
+                                quantidade: evento.target.value,
+                              })
+                            }
+                            className="input-quantidade"
+                          />
+                          <select
+                            value={dadosItemEditado.unidade}
+                            onChange={(evento) =>
+                              setDadosItemEditado({
+                                ...dadosItemEditado,
+                                unidade: evento.target.value,
+                              })
+                            }
+                            className="select-unidade"
+                          >
+                            <option value="">Unidade</option>
+                            {UNIDADES_ITEM.map((unidade) => (
+                              <option key={unidade.valor} value={unidade.valor}>
+                                {unidade.rotulo}
+                              </option>
+                            ))}
+                          </select>
+                          {dadosItemEditado.unidade === 'outra' && (
+                            <input
+                              type="text"
+                              value={dadosItemEditado.unidadeOutra}
+                              onChange={(evento) =>
+                                setDadosItemEditado({
+                                  ...dadosItemEditado,
+                                  unidadeOutra: evento.target.value,
+                                })
+                              }
+                              placeholder="Qual?"
+                              className="input-unidade-outra"
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        formatarQuantidadeUnidade(item.quantidade, item.unidade)
+                      )}
+                    </td>
+                    <td>{formatarQuantidadeUnidade(item.recebido || 0, item.unidade)}</td>
+                    <td className="celula-acoes">
+                      {emEdicao ? (
+                        <>
+                          <button
+                            className="btn-success btn-mini"
+                            onClick={() => salvarItemEditado(item)}
+                            disabled={salvando}
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            className="btn-secondary btn-mini"
+                            onClick={() => setItemEditando(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="btn-secondary btn-mini"
+                            onClick={() => iniciarEdicaoItem(item)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            className="btn-danger btn-mini"
+                            onClick={() => deletarItem(item)}
+                            disabled={salvando}
+                          >
+                            Apagar
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   const renderConfiguracoes = () => (
     <div>
