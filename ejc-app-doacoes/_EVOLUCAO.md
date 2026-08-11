@@ -3,6 +3,8 @@
 Histórico de decisões do app, para quem (Pablo ou outra sessão do Claude)
 precisar entender "por que está assim" sem reconstruir o raciocínio do zero.
 
+**Status:** ✅ no ar em 11/ago/2026 — https://pdbona.github.io/paroquiaNSG/ejc-app-doacoes/
+
 ## O que é
 
 App de coleta de doações para o **II Encontro de Jovens com Cristo**, Paróquia
