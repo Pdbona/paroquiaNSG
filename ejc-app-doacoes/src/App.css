@@ -758,3 +758,37 @@ button:disabled:hover {
 .modal-linha span:last-child {
   text-align: right;
 }
+
+/* Variante mais larga do .modal-cartao, para conteúdo com tabela/textarea
+   (ex: ImportarItensModal) em vez do cartão de detalhe estreito padrão. */
+.modal-cartao--largo {
+  max-width: 640px;
+}
+
+.textarea-importar {
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.tabela-importar {
+  display: block;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.linha-desabilitada {
+  opacity: 0.7;
+}
+
+.modal-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}

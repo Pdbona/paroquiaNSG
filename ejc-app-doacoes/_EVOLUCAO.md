@@ -85,6 +85,37 @@ relatório geral. Login por PIN (não é Firebase Auth de verdade — ver seçã
      afeta quem tentar rodar `npm start` localmente nesta pasta. Se precisar
      testar localmente, copie a pasta para fora do Drive antes de instalar.
 
+3. **PIN em texto puro + importação de itens em lote** (11/ago/2026, mesmo dia
+   do primeiro deploy):
+
+   - **PIN visível pro Admin**: decisão explícita do Pablo, com o risco
+     explicado antes de implementar (ver pergunta/resposta na conversa). O
+     campo `pin` da collection `coordenadores` passou a ser gravado em texto
+     puro (`services/auth.js`) em vez do hash SHA-256 anterior (`pin_hash`).
+     O Admin vê o PIN de cada coordenador na aba Coordenadores. **Trade-off
+     aceito conscientemente**: como essa collection é de leitura pública
+     (necessário pra tela de login listar nomes antes de autenticar),
+     qualquer pessoa que abrir o console do navegador também lê todos os
+     PINs — não é só o Admin que ganhou visibilidade, foi removida a única
+     proteção que existia. `pinConfere` ainda aceita o formato antigo
+     (`pin_hash`) por compatibilidade, mas nada mais grava nesse formato.
+
+   - **Importar lista de itens**: novo componente
+     `src/components/ImportarItensModal.jsx`, usado tanto pelo Coordenador de
+     Equipe (`CoordinatorTeamDashboard`, equipe travada na dele) quanto pelo
+     Admin (`AdminPanel`, nova aba "📦 Itens", escolhe a equipe de destino).
+     Cola-se uma lista (uma linha por item: `Nome, Quantidade, Unidade`,
+     aceita vírgula ou tab — dá pra colar direto de uma coluna do
+     Excel/Planilhas) ou carrega-se um arquivo `.csv`/`.txt`. Antes de
+     gravar, mostra uma prévia com cada linha marcada como Ok, Duplicada
+     (já existe na equipe, ou repetida dentro da própria lista) ou Inválida
+     (sem nome, ou quantidade não numérica), e só grava as linhas marcadas.
+     Não faz parsing de PDF/DOC (como o `INSTRUCOES_COLETA_DOACOES.md`
+     original cogitava) — decisão deliberada: extrair texto de PDF/DOC de
+     forma confiável no navegador exigiria bibliotecas pesadas (pdf.js,
+     mammoth) e ainda assim não lida bem com tabelas; CSV/TXT colado cobre o
+     caso real ("parei de cadastrar um por um") sem essa fragilidade.
+
 ## Decisões que ficam valendo pro próximo app do EJC
 
 Se/quando o próximo app do EJC for criado neste mesmo repositório e projeto

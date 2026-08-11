@@ -198,6 +198,16 @@ escrever no banco, mesmo sem PIN. As regras acima reduzem o estrago
 (validam formato, impedem apagar doações, congelam tudo depois de 30/09/2026),
 mas não impedem isso.
 
+PIN EM TEXTO PURO (decisão explícita do Pablo, 11/ago/2026): o campo "pin" da
+collection "coordenadores" é gravado sem hash, pra o Admin conseguir ver o PIN
+dos demais coordenadores direto no painel. Como "coordenadores" é de leitura
+pública (allow read: if true — necessário pra tela de login listar nomes antes
+de autenticar), isso quer dizer que QUALQUER pessoa que abrir o console do
+navegador também lê o PIN de todo mundo, não só o Admin. Antes dessa mudança
+o campo gravado era "pin_hash" (SHA-256), que pelo menos escondia o PIN de
+quem lesse a collection direto. Se decidir voltar atrás, é só o Admin usar
+"Redefinir PIN" — o campo antigo "pin_hash" nem existe mais nesse fluxo.
+
 Para o uso previsto — coleta de doações de uma paróquia, por três semanas —
 esse risco é aceitável. O que fecharia de vez seria mover as escritas para
 Cloud Functions com Firebase Auth de verdade, o que não cabe no prazo.

@@ -573,6 +573,12 @@
   margin: 0;
 }
 
+.botoes-cabecalho {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .form-secao--compacta .form-linha {
   margin-top: 12px;
 }

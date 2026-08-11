@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import DetalheDoadorModal from './DetalheDoadorModal';
+import ImportarItensModal from './ImportarItensModal';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
 import { adicionar, atualizar, remover, mensagemDeErro } from '../services/db';
 import { resumoEquipe, doadoresCompartilhados } from '../utils/agregacoes';
@@ -36,6 +37,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const [sucessoMsg, setSucessoMsg] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
+  const [mostrarImportar, setMostrarImportar] = useState(false);
 
   const equipeAtiva = equipeFixa || equipeSelecionada;
   const equipeAtual = equipes.find((equipe) => equipe.id === equipeAtiva);
@@ -296,12 +298,17 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
         <div className="form-secao nao-imprimir form-secao--compacta">
           <div className="form-secao-cabecalho">
             <h3>Itens</h3>
-            <button
-              className="btn-dourado btn-mini"
-              onClick={() => setMostrarNovoItem((anterior) => !anterior)}
-            >
-              {mostrarNovoItem ? '✕ Fechar' : '+ Adicionar Item'}
-            </button>
+            <div className="botoes-cabecalho">
+              <button className="btn-dourado btn-mini" onClick={() => setMostrarImportar(true)}>
+                📋 Importar lista
+              </button>
+              <button
+                className="btn-dourado btn-mini"
+                onClick={() => setMostrarNovoItem((anterior) => !anterior)}
+              >
+                {mostrarNovoItem ? '✕ Fechar' : '+ Adicionar Item'}
+              </button>
+            </div>
           </div>
           {mostrarNovoItem && (
             <div className="form-linha">
@@ -560,6 +567,15 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
         doacao={doadorSelecionado}
         onFechar={() => setDoadorSelecionado(null)}
       />
+
+      {mostrarImportar && (
+        <ImportarItensModal
+          equipes={equipes}
+          equipeFixaId={equipeAtiva}
+          itensExistentes={itens}
+          onFechar={() => setMostrarImportar(false)}
+        />
+      )}
     </div>
   );
 }

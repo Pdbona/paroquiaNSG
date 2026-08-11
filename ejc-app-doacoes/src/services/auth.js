@@ -1,20 +1,21 @@
 /*
  * Login por PIN contra a collection "coordenadores".
  *
- * LIMITAÇÃO CONHECIDA: sem Firebase Auth ou Cloud Functions, a verificação
- * acontece no navegador e a collection precisa ser legível. Por isso o PIN é
- * gravado como hash SHA-256 (pin_hash) e nunca em texto puro — quem ler a
- * collection não vê o PIN direto. Um PIN de 4 dígitos ainda é quebrável por
- * força bruta offline, então isto protege contra bisbilhotice, não contra um
- * atacante dedicado. Para o uso do evento (coleta de doações da paróquia) é
- * suficiente; se um dia precisar de segurança real, migrar para Firebase Auth.
+ * PIN em texto puro (decisão explícita do Pablo, 11/ago/2026): o Admin
+ * precisa conseguir ver o PIN dos demais coordenadores na tela, então o
+ * campo "pin" é gravado sem hash. ATENÇÃO — como esta collection é de
+ * leitura pública (`allow read: if true`, necessário pra tela de login
+ * listar os nomes antes de qualquer autenticação), isso significa que
+ * QUALQUER pessoa que abrir o console do navegador consegue ler o PIN de
+ * todos os coordenadores, não só o Admin pelo painel. Ver aviso em
+ * REGRAS_FIREBASE.txt. Sem Firebase Auth ou Cloud Functions não tem como
+ * restringir isso de verdade — se um dia precisar de segurança real,
+ * migrar para Firebase Auth.
  */
 
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase';
 import { adicionar, atualizar } from './db';
-
-const SAL = 'ejc-2026-guadalupe';
 
 /**
  * Login anônimo do Firebase. Não tem nada a ver com o PIN: serve só para o
@@ -41,26 +42,24 @@ export async function garantirSessaoAnonima() {
   }
 }
 
-export async function gerarHashPin(pin) {
-  const dados = new TextEncoder().encode(`${SAL}:${pin}`);
-  const buffer = await window.crypto.subtle.digest('SHA-256', dados);
-  return Array.from(new Uint8Array(buffer))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
 /**
- * Aceita tanto pin_hash quanto o campo pin em texto puro, para não quebrar
- * documentos criados na mão no Firebase Console.
+ * Aceita tanto o campo "pin" (texto puro, atual) quanto "pin_hash" (formato
+ * antigo, de antes de 11/ago/2026) — assim contas criadas antes dessa
+ * mudança continuam entrando normalmente. Contas novas só gravam "pin".
  */
 export async function pinConfere(pin, coordenador) {
   if (!coordenador) return false;
 
-  if (coordenador.pin_hash) {
-    return coordenador.pin_hash === (await gerarHashPin(pin));
-  }
   if (coordenador.pin) {
     return String(coordenador.pin) === String(pin);
+  }
+  if (coordenador.pin_hash) {
+    const dados = new TextEncoder().encode(`ejc-2026-guadalupe:${pin}`);
+    const buffer = await window.crypto.subtle.digest('SHA-256', dados);
+    const hash = Array.from(new Uint8Array(buffer))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    return coordenador.pin_hash === hash;
   }
   return false;
 }
@@ -70,7 +69,7 @@ export async function criarCoordenador({ nome, tipo, pin, equipe_id = null }) {
     nome: nome.trim(),
     tipo,
     equipe_id,
-    pin_hash: await gerarHashPin(pin),
+    pin: String(pin),
     ativo: true,
     criado_em: new Date(),
   });
@@ -78,9 +77,8 @@ export async function criarCoordenador({ nome, tipo, pin, equipe_id = null }) {
 
 export async function redefinirPin(coordenadorId, novoPin) {
   await atualizar('coordenadores', coordenadorId, {
-    pin_hash: await gerarHashPin(novoPin),
-    // Remove resquício de PIN em texto puro de documentos antigos.
-    pin: null,
+    pin: String(novoPin),
+    pin_hash: null,
     pin_atualizado_em: new Date(),
   });
 }

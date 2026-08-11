@@ -3,6 +3,7 @@ import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
 import DetalheDoadorModal from './DetalheDoadorModal';
+import ImportarItensModal from './ImportarItensModal';
 import { adicionar, atualizar, remover, mensagemDeErro, MODO_MOCK } from '../services/db';
 import { criarCoordenador, redefinirPin } from '../services/auth';
 import { resumoEquipe } from '../utils/agregacoes';
@@ -20,6 +21,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   const [sucessoMsg, setSucessoMsg] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
+  const [mostrarImportar, setMostrarImportar] = useState(false);
 
   // Equipes
   const [novaEquipe, setNovaEquipe] = useState('');
@@ -541,12 +543,19 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
       {mensagens}
 
       <h3 className="titulo-secao">Coordenadores Cadastrados</h3>
+      <p className="texto-apoio">
+        O PIN aparece em texto puro pra você (Admin) poder consultar sem precisar redefinir.
+        Lembre-se: como a lista de coordenadores é pública (a tela de login precisa dela antes do
+        login), qualquer pessoa que souber abrir o console do navegador também consegue ler esses
+        PINs — não é uma informação protegida de verdade, só escondida da tela.
+      </p>
       <table className="tabela">
         <thead>
           <tr>
             <th>Nome</th>
             <th>Tipo</th>
             <th>Equipe</th>
+            <th>PIN</th>
             <th>Situação</th>
             <th>Ações</th>
           </tr>
@@ -554,7 +563,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
         <tbody>
           {coordenadores.length === 0 ? (
             <tr>
-              <td colSpan="5" className="celula-vazia">
+              <td colSpan="6" className="celula-vazia">
                 Nenhum coordenador cadastrado
               </td>
             </tr>
@@ -569,6 +578,9 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                   </td>
                   <td>{rotuloTipo(coordenador.tipo)}</td>
                   <td>{equipe ? equipe.nome : '-'}</td>
+                  <td>
+                    <code>{coordenador.pin || '— (redefina p/ ver)'}</code>
+                  </td>
                   <td>
                     {coordenador.ativo === false ? (
                       <span className="badge badge-warning">Inativo</span>
@@ -594,6 +606,86 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                     <button
                       className="btn-danger btn-mini"
                       onClick={() => deletarCoordenador(coordenador)}
+                      disabled={salvando}
+                    >
+                      Apagar
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // ------------------------------------------------------------------ Itens
+
+  const deletarItem = async (item) => {
+    const temDoacao = doacoes.some((doacao) => doacao.item_id === item.id);
+    if (temDoacao) {
+      avisar('', `"${item.nome}" já tem doações registradas e não pode ser apagado.`);
+      return;
+    }
+    if (!window.confirm(`Apagar o item "${item.nome}"?`)) return;
+
+    try {
+      setSalvando(true);
+      await remover('itens', item.id);
+      avisar('Item apagado.');
+    } catch (problema) {
+      avisar('', `Erro ao apagar: ${mensagemDeErro(problema)}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const renderItens = () => (
+    <div>
+      <div className="form-secao-cabecalho">
+        <h3>Itens de todas as equipes</h3>
+        <button className="btn-dourado btn-mini" onClick={() => setMostrarImportar(true)}>
+          📋 Importar lista
+        </button>
+      </div>
+      <p className="texto-apoio">
+        Cadastro em massa: cole uma lista (ou carregue um .csv/.txt) em vez de criar item por
+        item. Escolha a equipe de destino na própria janela de importação.
+      </p>
+
+      {mensagens}
+
+      <table className="tabela">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Equipe</th>
+            <th>Meta</th>
+            <th>Recebido</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {itens.length === 0 ? (
+            <tr>
+              <td colSpan="5" className="celula-vazia">
+                Nenhum item cadastrado em nenhuma equipe ainda
+              </td>
+            </tr>
+          ) : (
+            itens.map((item) => {
+              const equipe = equipes.find((registro) => registro.id === item.equipe_id);
+              return (
+                <tr key={item.id}>
+                  <td>{item.nome}</td>
+                  <td>{equipe ? equipe.nome : '-'}</td>
+                  <td>{formatarQuantidadeUnidade(item.quantidade, item.unidade)}</td>
+                  <td>{formatarQuantidadeUnidade(item.recebido || 0, item.unidade)}</td>
+                  <td className="celula-acoes">
+                    <button
+                      className="btn-danger btn-mini"
+                      onClick={() => deletarItem(item)}
                       disabled={salvando}
                     >
                       Apagar
@@ -687,6 +779,12 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
             🔑 Coordenadores
           </button>
           <button
+            className={`aba ${aba === 'itens' ? 'ativa' : ''}`}
+            onClick={() => setAba('itens')}
+          >
+            📦 Itens
+          </button>
+          <button
             className={`aba ${aba === 'configuracoes' ? 'ativa' : ''}`}
             onClick={() => setAba('configuracoes')}
           >
@@ -698,6 +796,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
           {aba === 'dashboard' && renderDashboard()}
           {aba === 'equipes' && renderEquipes()}
           {aba === 'coordenadores' && renderCoordenadores()}
+          {aba === 'itens' && renderItens()}
           {aba === 'configuracoes' && renderConfiguracoes()}
         </div>
       </div>
@@ -706,6 +805,14 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
         doacao={doadorSelecionado}
         onFechar={() => setDoadorSelecionado(null)}
       />
+
+      {mostrarImportar && (
+        <ImportarItensModal
+          equipes={equipes}
+          itensExistentes={itens}
+          onFechar={() => setMostrarImportar(false)}
+        />
+      )}
     </div>
   );
 }
