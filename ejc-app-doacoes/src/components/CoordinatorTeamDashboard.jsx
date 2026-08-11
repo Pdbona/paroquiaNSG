@@ -363,147 +363,118 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
 
         <h3 className="titulo-secao nao-imprimir">Gerenciar Itens</h3>
         <p className="texto-apoio nao-imprimir">
-          Só o cadastro (nome e meta). Pra ver quanto já chegou e o que falta, veja o relatório
-          acima.
+          Selecione um item pra editar a meta ou apagar. Pra ver quanto já chegou e o que falta,
+          veja o relatório acima.
         </p>
-        <table className="tabela nao-imprimir">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Meta</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {resumo.itens.length === 0 ? (
-              <tr>
-                <td colSpan="3" className="celula-vazia">
-                  Nenhum item cadastrado
-                </td>
-              </tr>
-            ) : (
-              resumo.itens.map((item) => {
-                const emEdicao = itemEditando === item.id;
-                return (
-                  <tr key={item.id}>
-                    <td>
-                      {emEdicao ? (
-                        <input
-                          type="text"
-                          value={dadosEditados.nome}
-                          onChange={(evento) =>
-                            setDadosEditados({ ...dadosEditados, nome: evento.target.value })
-                          }
-                          autoFocus
-                        />
-                      ) : (
-                        item.nome
-                      )}
-                    </td>
-                    <td>
-                      {emEdicao ? (
-                        <div className="edicao-quantidade-unidade">
-                          <input
-                            type="number"
-                            min="1"
-                            value={dadosEditados.quantidade}
-                            onChange={(evento) =>
-                              setDadosEditados({
-                                ...dadosEditados,
-                                quantidade: evento.target.value,
-                              })
-                            }
-                            className="input-quantidade"
-                          />
-                          <select
-                            value={dadosEditados.unidade}
-                            onChange={(evento) =>
-                              setDadosEditados({ ...dadosEditados, unidade: evento.target.value })
-                            }
-                            className="select-unidade"
-                          >
-                            <option value="">Unidade</option>
-                            {UNIDADES_ITEM.map((unidade) => (
-                              <option key={unidade.valor} value={unidade.valor}>
-                                {unidade.rotulo}
-                              </option>
-                            ))}
-                          </select>
-                          {dadosEditados.unidade === 'outra' && (
-                            <input
-                              type="text"
-                              value={dadosEditados.unidadeOutra}
-                              onChange={(evento) =>
-                                setDadosEditados({
-                                  ...dadosEditados,
-                                  unidadeOutra: evento.target.value,
-                                })
-                              }
-                              placeholder="Qual?"
-                              className="input-unidade-outra"
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        formatarQuantidadeUnidade(item.necessario, item.unidade)
-                      )}
-                    </td>
-                    <td className="celula-acoes nao-imprimir">
-                      {emEdicao ? (
-                        <>
-                          <button
-                            className="btn-success btn-mini"
-                            onClick={() => salvarItem(item)}
-                            disabled={salvando}
-                          >
-                            Salvar
-                          </button>
-                          <button
-                            className="btn-secondary btn-mini"
-                            onClick={() => setItemEditando(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            className="btn-secondary btn-mini"
-                            onClick={() => {
-                              setItemEditando(item.id);
-                              const unidadeConhecida = UNIDADES_ITEM.some(
-                                (opcao) => opcao.valor === item.unidade
-                              );
-                              setDadosEditados({
-                                nome: item.nome,
-                                quantidade: String(item.necessario),
-                                unidade: item.unidade
-                                  ? unidadeConhecida
-                                    ? item.unidade
-                                    : 'outra'
-                                  : '',
-                                unidadeOutra: item.unidade && !unidadeConhecida ? item.unidade : '',
-                              });
-                            }}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            className="btn-danger btn-mini"
-                            onClick={() => deletarItem(item)}
-                            disabled={salvando}
-                          >
-                            Apagar
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+
+        <div className="formulario-grupo nao-imprimir">
+          <label>Selecionar item ({resumo.itens.length})</label>
+          <select
+            value={itemEditando || ''}
+            onChange={(evento) => {
+              const id = evento.target.value;
+              if (!id) {
+                setItemEditando(null);
+                return;
+              }
+              const item = resumo.itens.find((registro) => registro.id === id);
+              if (!item) return;
+              const unidadeConhecida = UNIDADES_ITEM.some((opcao) => opcao.valor === item.unidade);
+              setItemEditando(id);
+              setDadosEditados({
+                nome: item.nome,
+                quantidade: String(item.necessario),
+                unidade: item.unidade ? (unidadeConhecida ? item.unidade : 'outra') : '',
+                unidadeOutra: item.unidade && !unidadeConhecida ? item.unidade : '',
+              });
+            }}
+          >
+            <option value="">
+              {resumo.itens.length === 0 ? 'Nenhum item cadastrado' : '-- Selecione --'}
+            </option>
+            {resumo.itens.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.nome} — {formatarQuantidadeUnidade(item.necessario, item.unidade)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {itemEditando &&
+          (() => {
+            const item = resumo.itens.find((registro) => registro.id === itemEditando);
+            if (!item) return null;
+            return (
+              <div className="form-secao form-secao--compacta nao-imprimir">
+                <div className="formulario-grupo">
+                  <label>Nome do item</label>
+                  <input
+                    type="text"
+                    value={dadosEditados.nome}
+                    onChange={(evento) =>
+                      setDadosEditados({ ...dadosEditados, nome: evento.target.value })
+                    }
+                  />
+                </div>
+                <div className="form-linha">
+                  <input
+                    type="number"
+                    min="1"
+                    value={dadosEditados.quantidade}
+                    onChange={(evento) =>
+                      setDadosEditados({ ...dadosEditados, quantidade: evento.target.value })
+                    }
+                    className="input-quantidade"
+                    placeholder="Meta"
+                  />
+                  <select
+                    value={dadosEditados.unidade}
+                    onChange={(evento) =>
+                      setDadosEditados({ ...dadosEditados, unidade: evento.target.value })
+                    }
+                    className="select-unidade"
+                  >
+                    <option value="">Unidade</option>
+                    {UNIDADES_ITEM.map((unidade) => (
+                      <option key={unidade.valor} value={unidade.valor}>
+                        {unidade.rotulo}
+                      </option>
+                    ))}
+                  </select>
+                  {dadosEditados.unidade === 'outra' && (
+                    <input
+                      type="text"
+                      value={dadosEditados.unidadeOutra}
+                      onChange={(evento) =>
+                        setDadosEditados({ ...dadosEditados, unidadeOutra: evento.target.value })
+                      }
+                      placeholder="Qual?"
+                      className="input-unidade-outra"
+                    />
+                  )}
+                </div>
+                <div className="modal-acoes">
+                  <button
+                    className="btn-danger btn-mini"
+                    onClick={() => deletarItem(item)}
+                    disabled={salvando}
+                  >
+                    Apagar
+                  </button>
+                  <button className="btn-secondary" onClick={() => setItemEditando(null)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => salvarItem(item)}
+                    disabled={salvando}
+                  >
+                    {salvando ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
         <h3 className="titulo-secao nao-imprimir">Doações Recebidas</h3>
         <table className="tabela nao-imprimir">

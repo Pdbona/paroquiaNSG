@@ -63,50 +63,54 @@ function RelatorioPorEquipe({ resumos }) {
                 (resumo.itens.length === 0 ? (
                   <p className="coluna-equipe-vazia">Nenhum item cadastrado.</p>
                 ) : (
-                  resumo.itens.map((item) => (
-                    <div key={item.id} className="linha-item-coluna">
-                      <div className="linha-item-cabecalho">
-                        <span className="linha-item-nome">{item.nome}</span>
-                        <span className="linha-item-numeros">
-                          {formatarQuantidadeUnidade(item.recebido, item.unidade)}/
-                          {formatarQuantidadeUnidade(item.necessario, item.unidade)}
+                  <div className="grade-itens-equipe">
+                    {resumo.itens.map((item) => (
+                      <div key={item.id} className="linha-item-coluna">
+                        <div className="linha-item-cabecalho">
+                          <span className="linha-item-nome">{item.nome}</span>
+                          <span className="linha-item-numeros">
+                            {formatarQuantidadeUnidade(item.recebido, item.unidade)}/
+                            {formatarQuantidadeUnidade(item.necessario, item.unidade)}
+                          </span>
+                        </div>
+                        <div className="progress-bar mini">
+                          <div
+                            className="progress-bar-fill"
+                            style={{ width: `${item.progresso}%` }}
+                          />
+                        </div>
+                        <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
+                          {item.faltam > 0
+                            ? `Faltam ${formatarQuantidadeUnidade(item.faltam, item.unidade)}`
+                            : '✓ Completo'}
                         </span>
                       </div>
-                      <div className="progress-bar mini">
-                        <div
-                          className="progress-bar-fill"
-                          style={{ width: `${item.progresso}%` }}
-                        />
-                      </div>
-                      <span className={item.faltam > 0 ? 'texto-faltantes' : 'texto-completo'}>
-                        {item.faltam > 0
-                          ? `Faltam ${formatarQuantidadeUnidade(item.faltam, item.unidade)}`
-                          : '✓ Completo'}
-                      </span>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 ))}
 
               {tipo === 'doado' &&
                 (resumo.doacoes.length === 0 ? (
                   <p className="coluna-equipe-vazia">Nenhuma doação recebida ainda.</p>
                 ) : (
-                  resumo.doacoes.map((doacao) => (
-                    <div key={doacao.id} className="linha-item-coluna">
-                      <div className="linha-item-cabecalho">
-                        <span className="linha-item-nome">{doacao.item_nome}</span>
-                        <span className="linha-item-numeros">
-                          {formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}
+                  <div className="grade-itens-equipe">
+                    {resumo.doacoes.map((doacao) => (
+                      <div key={doacao.id} className="linha-item-coluna">
+                        <div className="linha-item-cabecalho">
+                          <span className="linha-item-nome">{doacao.item_nome}</span>
+                          <span className="linha-item-numeros">
+                            {formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}
+                          </span>
+                        </div>
+                        <span className="linha-doador">
+                          {doacao.doador_nome}
+                          {doacao.doador_telefone ? ` · ${doacao.doador_telefone}` : ''}
+                          {' · '}
+                          {formatarDataHora(doacao.data_criacao)}
                         </span>
                       </div>
-                      <span className="linha-doador">
-                        {doacao.doador_nome}
-                        {doacao.doador_telefone ? ` · ${doacao.doador_telefone}` : ''}
-                        {' · '}
-                        {formatarDataHora(doacao.data_criacao)}
-                      </span>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 ))}
 
               {tipo === 'falta' &&
@@ -115,16 +119,18 @@ function RelatorioPorEquipe({ resumos }) {
                   return faltando.length === 0 ? (
                     <p className="coluna-equipe-vazia">🎉 Meta atingida em tudo.</p>
                   ) : (
-                    faltando.map((item) => (
-                      <div key={item.id} className="linha-item-coluna">
-                        <div className="linha-item-cabecalho">
-                          <span className="linha-item-nome">{item.nome}</span>
-                          <span className="linha-item-numeros texto-faltantes">
-                            Faltam {formatarQuantidadeUnidade(item.faltam, item.unidade)}
-                          </span>
+                    <div className="grade-itens-equipe">
+                      {faltando.map((item) => (
+                        <div key={item.id} className="linha-item-coluna">
+                          <div className="linha-item-cabecalho">
+                            <span className="linha-item-nome">{item.nome}</span>
+                            <span className="linha-item-numeros texto-faltantes">
+                              Faltam {formatarQuantidadeUnidade(item.faltam, item.unidade)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   );
                 })()}
             </div>

@@ -411,14 +411,20 @@
   font-size: 13px;
 }
 
+/* Itens dentro de uma equipe, lado a lado quando a tela tem espaço (em vez
+   de um por linha) — sobretudo importante quando .colunas-equipes tem uma
+   única equipe (painel do Coordenador de Equipe, ou relatório de 1 equipe
+   só), onde o cartão da equipe ocupa a largura toda e ficava um desperdício
+   de espaço horizontal só com uma coluna de itens. */
+.grade-itens-equipe {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 18px;
+}
+
 .linha-item-coluna {
   padding: 8px 0;
   border-bottom: 1px solid #f0f0f0;
-}
-
-.linha-item-coluna:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
 }
 
 .linha-item-cabecalho {

@@ -108,7 +108,8 @@ service cloud.firestore {
     }
 
     // A tela de login precisa listar os nomes antes de qualquer login.
-    // O PIN nunca é gravado aqui em texto puro, só o hash (campo pin_hash).
+    // PIN em texto puro no campo "pin" — ver aviso completo na seção
+    // "O QUE ESTAS REGRAS NÃO RESOLVEM" mais abaixo neste arquivo.
     match /apps/doacoes/coordenadores/{coordenadorId} {
       allow read: if true;
       allow create, update, delete: if doApp() && dentroDoPrazo();
@@ -230,7 +231,7 @@ apps/doacoes/doacoes        { item_id, item_nome, item_unidade, quantidade, equi
                                doador_cep, doador_endereco, doador_numero,
                                doador_referencia, doador_bairro, doador_cidade,
                                doador_estado }
-apps/doacoes/coordenadores  { nome, tipo, equipe_id, pin_hash, ativo, criado_em }
+apps/doacoes/coordenadores  { nome, tipo, equipe_id, pin, ativo, criado_em }
 
 tipo do coordenador: 'admin' | 'coord-geral' | 'coord-equipe'
 
