@@ -251,3 +251,4 @@ Desenvolvido pela SBS Solution para uso interno.
 **Versão**: 1.0.0  
 **Última atualização**: Agosto 2024
 
+
