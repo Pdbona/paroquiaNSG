@@ -1,0 +1,72 @@
+name: Deploy ejc-app-doacoes
+
+# Este repositório é um monorepo com um app por subpasta (padrão SBS). Este
+# workflow cuida só de ejc-app-doacoes/ — só dispara quando algo muda ali
+# dentro, e publica no gh-pages branch DENTRO da subpasta ejc-app-doacoes/
+# (destination_dir + keep_files), pra não apagar outros apps que já estejam
+# publicados no mesmo branch.
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'ejc-app-doacoes/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'ejc-app-doacoes/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ejc-app-doacoes
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ejc-app-doacoes/package-lock.json
+
+      - name: Instalar dependências
+        run: npm install
+
+      # As chaves precisam existir aqui: o Create React App grava o valor das
+      # variáveis REACT_APP_* dentro do bundle no momento do build. Sem elas o
+      # app publicado abre na tela "Firebase não configurado".
+      # Cadastre em: Settings > Secrets and variables > Actions > New secret.
+      #
+      # CI: false é obrigatório — sem isso, qualquer warning do ESLint (ex:
+      # variável não usada) vira erro e quebra o build no GitHub Actions
+      # (localmente não quebra, só lá, porque o runner seta CI=true sozinho).
+      - name: Montar o app
+        run: npm run build
+        env:
+          CI: false
+          REACT_APP_FIREBASE_API_KEY: ${{ secrets.REACT_APP_FIREBASE_API_KEY }}
+          REACT_APP_FIREBASE_AUTH_DOMAIN: ${{ secrets.REACT_APP_FIREBASE_AUTH_DOMAIN }}
+          REACT_APP_FIREBASE_PROJECT_ID: ${{ secrets.REACT_APP_FIREBASE_PROJECT_ID }}
+          REACT_APP_FIREBASE_STORAGE_BUCKET: ${{ secrets.REACT_APP_FIREBASE_STORAGE_BUCKET }}
+          REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}
+          REACT_APP_FIREBASE_APP_ID: ${{ secrets.REACT_APP_FIREBASE_APP_ID }}
+
+      # Publica só quando o commit entra na branch principal; em pull request
+      # o job para no build, que já serve de conferência.
+      # destination_dir + keep_files: publica dentro de /ejc-app-doacoes/ no
+      # branch gh-pages, sem apagar as pastas de outros apps do EJC que
+      # estejam publicadas no mesmo branch.
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./ejc-app-doacoes/build
+          destination_dir: ejc-app-doacoes
+          keep_files: true
