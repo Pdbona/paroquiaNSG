@@ -63,6 +63,26 @@ relatório geral. Login por PIN (não é Firebase Auth de verdade — ver seçã
      habilitar o Bloco A das regras (o mais seguro — esconde dados dos
      doadores de quem não usa o app).
 
+   - **Dois problemas de primeiro deploy, já corrigidos**:
+     1. `package-lock.json` nunca tinha sido commitado (só existia numa cópia
+        local usada pra validar o build fora do Google Drive — ver nota
+        abaixo). O `actions/setup-node` falhava logo no início com "Some
+        specified paths were not resolved, unable to cache dependencies".
+     2. O `GITHUB_TOKEN` automático do Actions estava com permissão só
+        leitura (padrão do GitHub para repositórios novos). O último passo
+        (`peaceiris/actions-gh-pages`, que faz `git push` pra branch
+        `gh-pages`) falhava com "the process '/usr/bin/git' failed with exit
+        code 128". Corrigido em Settings > Actions > General > Workflow
+        permissions > "Read and write permissions".
+
+   - **Nota sobre `npm install` nesta pasta**: como o projeto vive dentro do
+     Google Drive (sincronização em nuvem), `npm install` local aqui costuma
+     falhar com erros `EBADF`/`EPERM` — o cliente do Drive brinca de travar
+     arquivos no meio da escrita do `node_modules`. Não afeta o deploy real
+     (o GitHub Actions instala num runner limpo, sem Drive no meio); só
+     afeta quem tentar rodar `npm start` localmente nesta pasta. Se precisar
+     testar localmente, copie a pasta para fora do Drive antes de instalar.
+
 ## Decisões que ficam valendo pro próximo app do EJC
 
 Se/quando o próximo app do EJC for criado neste mesmo repositório e projeto
