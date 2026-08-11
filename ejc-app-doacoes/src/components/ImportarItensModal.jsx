@@ -9,8 +9,10 @@ import { normalizarNome, UNIDADES_ITEM } from '../utils/formato';
  * Uma linha por item: "Nome, Quantidade, Unidade" — aceita vírgula OU tab
  * como separador (tab é o que o Excel/Planilhas Google gera ao colar uma
  * coluna copiada), então dá pra colar direto de uma célula sem reformatar.
- * A unidade é opcional; se digitar algo que não está na lista fixa, entra
- * como texto livre mesmo (igual ao "Outra" do cadastro manual).
+ * As três colunas são obrigatórias (mesma exigência do cadastro manual de um
+ * item só) — sem unidade, o item aparece sem ela na prateleira do doador. Se
+ * a unidade digitada não está na lista fixa, entra como texto livre mesmo
+ * (igual ao "Outra" do cadastro manual).
  *
  * Props:
  *  - equipes: lista completa de equipes (só usada se equipeFixaId não vier)
@@ -88,6 +90,12 @@ function ImportarItensModal({ equipes, equipeFixaId, itensExistentes, onFechar }
       } else if (!Number.isFinite(quantidade) || quantidade <= 0) {
         status = 'invalida';
         motivo = 'Quantidade inválida (2ª coluna precisa ser um número maior que zero)';
+      } else if (!unidade) {
+        // Sem isso, o item some sem unidade na tela do doador ("Precisa de
+        // 5" em vez de "Precisa de 5 kg") — mesma exigência do formulário de
+        // item único, que já obriga a unidade.
+        status = 'invalida';
+        motivo = 'Sem unidade (3ª coluna obrigatória, ex: kg, L, unidade)';
       } else if (nomesNaEquipe.has(chave)) {
         status = 'duplicada';
         motivo = 'Já existe um item com esse nome nesta equipe';
@@ -199,9 +207,10 @@ function ImportarItensModal({ equipes, equipeFixaId, itensExistentes, onFechar }
           )}
 
           <p className="texto-apoio">
-            Uma linha por item: <strong>Nome, Quantidade, Unidade</strong> (a unidade é
-            opcional). Pode colar direto de uma coluna do Excel/Planilhas Google, ou carregar um
-            arquivo <strong>.csv</strong> ou <strong>.txt</strong>.
+            Uma linha por item: <strong>Nome, Quantidade, Unidade</strong> (as três colunas são
+            obrigatórias — sem unidade, o item aparece sem ela pro doador, ex: "Precisa de 5" em
+            vez de "Precisa de 5 kg"). Pode colar direto de uma coluna do Excel/Planilhas Google,
+            ou carregar um arquivo <strong>.csv</strong> ou <strong>.txt</strong>.
             <br />
             Exemplo: <code>Arroz, 50, kg</code>
           </p>
