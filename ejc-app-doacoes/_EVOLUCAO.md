@@ -148,6 +148,25 @@ Firebase, seguir o mesmo padrão:
 ## Links
 
 - Repositório: https://github.com/Pdbona/paroquiaNSG
-- App publicado: https://pdbona.github.io/paroquiaNSG/ejc-app-doacoes/
+- App publicado (4 opções — Admin/Coord. Geral/Coord. Equipe/Doador): https://pdbona.github.io/paroquiaNSG/ejc-app-doacoes/
+- **Link exclusivo do doador** (cai direto no formulário, sem tela de escolha): https://pdbona.github.io/paroquiaNSG/doacao_ejc_pnguadalupe/
 - Firebase Console: https://console.firebase.google.com/project/paroquiansg-2f648/overview
 - Firestore (dados): https://console.firebase.google.com/project/paroquiansg-2f648/firestore/databases/-default-/data
+
+### Como funciona o link exclusivo do doador
+
+`doacao_ejc_pnguadalupe/index.html` é uma página estática de redirecionamento
+(meta refresh + JS) publicada manualmente na branch `gh-pages`, na raiz do
+repo (fora da subpasta `ejc-app-doacoes/` que o GitHub Actions gerencia) —
+por isso não precisou mexer no workflow. Ela manda pra
+`ejc-app-doacoes/?doador`; o parâmetro `?doador` é lido por `App.jsx`
+(função `telaInicial`) e pula a tela de login, abrindo já no formulário.
+
+Existe uma cópia-fonte deste arquivo na branch `main`
+(`doacao_ejc_pnguadalupe/index.html`, na raiz do repo) só como documentação
+— o arquivo que o navegador carrega de fato é o publicado direto na
+`gh-pages`. Se precisar mudar o destino do redirecionamento, edite os dois
+(ou publique de novo na gh-pages com `git worktree`, do jeito que foi feito
+aqui: `git fetch origin gh-pages`, `git worktree add <pasta> gh-pages`,
+edita, commit, `git push origin gh-pages` — sem tocar em `ejc-app-doacoes/`
+pra não conflitar com o próximo deploy do Actions).
