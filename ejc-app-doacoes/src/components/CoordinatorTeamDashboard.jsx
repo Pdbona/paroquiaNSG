@@ -5,7 +5,7 @@ import DetalheDoadorModal from './DetalheDoadorModal';
 import ImportarItensModal from './ImportarItensModal';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
 import { adicionar, atualizar, remover, mensagemDeErro } from '../services/db';
-import { resumoEquipe, doadoresCompartilhados } from '../utils/agregacoes';
+import { resumoEquipe, doadoresCompartilhados, ordenarDoacoes } from '../utils/agregacoes';
 import {
   formatarDataHora,
   formatarQuantidadeUnidade,
@@ -38,6 +38,7 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const [salvando, setSalvando] = useState(false);
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
   const [mostrarImportar, setMostrarImportar] = useState(false);
+  const [ordem, setOrdem] = useState('doador');
 
   const equipeAtiva = equipeFixa || equipeSelecionada;
   const equipeAtual = equipes.find((equipe) => equipe.id === equipeAtiva);
@@ -58,8 +59,8 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
   );
 
   const doacoesEquipe = useMemo(
-    () => doacoes.filter((doacao) => doacao.equipe_id === equipeAtiva),
-    [doacoes, equipeAtiva]
+    () => ordenarDoacoes(doacoes.filter((doacao) => doacao.equipe_id === equipeAtiva), ordem),
+    [doacoes, equipeAtiva, ordem]
   );
 
   // Resolve o valor final da unidade: o que veio do select, ou o texto
@@ -476,7 +477,19 @@ function CoordinatorTeamDashboard({ user, equipes, itens, doacoes, onLogout }) {
             );
           })()}
 
-        <h3 className="titulo-secao nao-imprimir">Doações Recebidas</h3>
+        <div className="cabecalho-equipe nao-imprimir">
+          <h3 className="titulo-secao" style={{ margin: 0 }}>
+            Doações Recebidas
+          </h3>
+          <select
+            value={ordem}
+            onChange={(evento) => setOrdem(evento.target.value)}
+            className="select-equipe"
+          >
+            <option value="doador">Ordenar por doador</option>
+            <option value="data">Ordenar por data e hora</option>
+          </select>
+        </div>
         <table className="tabela nao-imprimir">
           <thead>
             <tr>

@@ -3,7 +3,7 @@
  * 50 kg de arroz atende um item que pede 50 kg, e não "1 de 50".
  */
 
-import { normalizarNome } from './formato';
+import { normalizarNome, paraData } from './formato';
 
 export function somaQuantidades(registros) {
   return registros.reduce((total, registro) => total + (Number(registro.quantidade) || 0), 0);
@@ -134,6 +134,50 @@ export function ratearEntreEquipes(quantidadeTotal, registros) {
   }
 
   return alocacao.map((registro) => ({ id: registro.id, quantidade: registro.quantidade }));
+}
+
+/**
+ * Agrega doações por item (nome + unidade), somando as quantidades — usado
+ * no relatório "só o que foi doado" (RelatorioPorEquipe), que mostra o total
+ * recebido de cada item sem listar por doador.
+ */
+export function agregarPorItem(doacoes) {
+  const porItem = {};
+
+  doacoes.forEach((doacao) => {
+    const chave = `${doacao.item_id || doacao.item_nome}__${doacao.item_unidade || ''}`;
+    if (!porItem[chave]) {
+      porItem[chave] = {
+        chave,
+        nome: doacao.item_nome,
+        unidade: doacao.item_unidade,
+        quantidade: 0,
+      };
+    }
+    porItem[chave].quantidade += Number(doacao.quantidade) || 0;
+  });
+
+  return Object.values(porItem).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+/**
+ * Ordena uma lista de doações. Padrão é por doador (agrupa quem doou vários
+ * itens, mais fácil de conferir na hora da entrega); "data" mantém a ordem
+ * cronológica, mais recente primeiro, para quem quer ver o que chegou agora.
+ */
+export function ordenarDoacoes(doacoes, criterio = 'doador') {
+  const lista = [...doacoes];
+
+  if (criterio === 'data') {
+    return lista.sort((a, b) => (paraData(b.data_criacao) || 0) - (paraData(a.data_criacao) || 0));
+  }
+
+  return lista.sort((a, b) => {
+    const nomeA = normalizarNome(a.doador_nome);
+    const nomeB = normalizarNome(b.doador_nome);
+    if (nomeA !== nomeB) return nomeA.localeCompare(nomeB, 'pt-BR');
+    return (paraData(a.data_criacao) || 0) - (paraData(b.data_criacao) || 0);
+  });
 }
 
 /**

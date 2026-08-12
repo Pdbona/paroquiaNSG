@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import BrandLogo from './BrandLogo';
-import { formatarDataHora, formatarQuantidadeUnidade } from '../utils/formato';
+import { agregarPorItem } from '../utils/agregacoes';
+import { formatarQuantidadeUnidade } from '../utils/formato';
 
 /**
  * Situação de doações em colunas, uma por equipe — usado no Dashboard do
@@ -11,7 +12,8 @@ import { formatarDataHora, formatarQuantidadeUnidade } from '../utils/formato';
  *
  * Três formatos, escolhidos no seletor antes de imprimir:
  *  - tudo: necessário/recebido/faltam por item, com barra de progresso.
- *  - doado: só o que já chegou, item por item, com o nome de quem doou.
+ *  - doado: só o que já chegou, total por item (sem doador — quem doou cada
+ *    unidade fica na lista "Todas as Doações"/"Doações Recebidas" abaixo).
  *  - falta: só o que ainda falta, sem os itens já completos.
  */
 function RelatorioPorEquipe({ resumos }) {
@@ -42,7 +44,7 @@ function RelatorioPorEquipe({ resumos }) {
             className="select-equipe"
           >
             <option value="tudo">Tudo (necessário, recebido, falta)</option>
-            <option value="doado">Só o que foi doado e por quem</option>
+            <option value="doado">Só o que foi doado (total por item)</option>
             <option value="falta">Só o que falta</option>
           </select>
           <button className="btn-secondary" onClick={() => window.print()}>
@@ -90,28 +92,25 @@ function RelatorioPorEquipe({ resumos }) {
                 ))}
 
               {tipo === 'doado' &&
-                (resumo.doacoes.length === 0 ? (
-                  <p className="coluna-equipe-vazia">Nenhuma doação recebida ainda.</p>
-                ) : (
-                  <div className="grade-itens-equipe">
-                    {resumo.doacoes.map((doacao) => (
-                      <div key={doacao.id} className="linha-item-coluna">
-                        <div className="linha-item-cabecalho">
-                          <span className="linha-item-nome">{doacao.item_nome}</span>
-                          <span className="linha-item-numeros">
-                            {formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}
-                          </span>
+                (() => {
+                  const itensDoados = agregarPorItem(resumo.doacoes);
+                  return itensDoados.length === 0 ? (
+                    <p className="coluna-equipe-vazia">Nenhuma doação recebida ainda.</p>
+                  ) : (
+                    <div className="grade-itens-equipe">
+                      {itensDoados.map((item) => (
+                        <div key={item.chave} className="linha-item-coluna">
+                          <div className="linha-item-cabecalho">
+                            <span className="linha-item-nome">{item.nome}</span>
+                            <span className="linha-item-numeros">
+                              {formatarQuantidadeUnidade(item.quantidade, item.unidade)}
+                            </span>
+                          </div>
                         </div>
-                        <span className="linha-doador">
-                          {doacao.doador_nome}
-                          {doacao.doador_telefone ? ` · ${doacao.doador_telefone}` : ''}
-                          {' · '}
-                          {formatarDataHora(doacao.data_criacao)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                      ))}
+                    </div>
+                  );
+                })()}
 
               {tipo === 'falta' &&
                 (() => {

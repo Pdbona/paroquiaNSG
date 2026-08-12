@@ -3,11 +3,12 @@ import '../styles/AdminPanel.css';
 import BrandLogo from './BrandLogo';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
 import DetalheDoadorModal from './DetalheDoadorModal';
-import { resumoEquipe } from '../utils/agregacoes';
+import { resumoEquipe, ordenarDoacoes } from '../utils/agregacoes';
 import { formatarDataHora, formatarQuantidadeUnidade } from '../utils/formato';
 
 function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }) {
   const [filtroEquipe, setFiltroEquipe] = useState('');
+  const [ordem, setOrdem] = useState('doador');
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
 
   const resumos = useMemo(
@@ -20,12 +21,8 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
       ? doacoes.filter((doacao) => doacao.equipe_id === filtroEquipe)
       : doacoes;
 
-    return [...lista].sort((a, b) => {
-      const dataA = a.data_criacao?.toDate?.() || new Date(a.data_criacao || 0);
-      const dataB = b.data_criacao?.toDate?.() || new Date(b.data_criacao || 0);
-      return dataB - dataA;
-    });
-  }, [doacoes, filtroEquipe]);
+    return ordenarDoacoes(lista, ordem);
+  }, [doacoes, filtroEquipe, ordem]);
 
   return (
     <div className="admin-container">
@@ -49,18 +46,28 @@ function CoordinatorGeneralDashboard({ user, equipes, itens, doacoes, onLogout }
 
         <div className="cabecalho-equipe nao-imprimir">
           <h2>📊 Todas as Doações</h2>
-          <select
-            value={filtroEquipe}
-            onChange={(evento) => setFiltroEquipe(evento.target.value)}
-            className="select-equipe"
-          >
-            <option value="">Todas as equipes</option>
-            {equipes.map((equipe) => (
-              <option key={equipe.id} value={equipe.id}>
-                {equipe.nome}
-              </option>
-            ))}
-          </select>
+          <div className="relatorio-controles">
+            <select
+              value={ordem}
+              onChange={(evento) => setOrdem(evento.target.value)}
+              className="select-equipe"
+            >
+              <option value="doador">Ordenar por doador</option>
+              <option value="data">Ordenar por data e hora</option>
+            </select>
+            <select
+              value={filtroEquipe}
+              onChange={(evento) => setFiltroEquipe(evento.target.value)}
+              className="select-equipe"
+            >
+              <option value="">Todas as equipes</option>
+              {equipes.map((equipe) => (
+                <option key={equipe.id} value={equipe.id}>
+                  {equipe.nome}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <table className="tabela nao-imprimir">

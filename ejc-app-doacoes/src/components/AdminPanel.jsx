@@ -6,7 +6,7 @@ import DetalheDoadorModal from './DetalheDoadorModal';
 import ImportarItensModal from './ImportarItensModal';
 import { adicionar, atualizar, remover, mensagemDeErro, MODO_MOCK } from '../services/db';
 import { criarCoordenador, redefinirPin } from '../services/auth';
-import { resumoEquipe } from '../utils/agregacoes';
+import { resumoEquipe, ordenarDoacoes } from '../utils/agregacoes';
 import {
   formatarDataHora,
   formatarQuantidadeUnidade,
@@ -23,6 +23,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   const [salvando, setSalvando] = useState(false);
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
   const [mostrarImportar, setMostrarImportar] = useState(false);
+  const [ordemRecentes, setOrdemRecentes] = useState('doador');
 
   // Itens
   const [filtroEquipeItens, setFiltroEquipeItens] = useState('');
@@ -269,13 +270,16 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   );
 
   const renderDashboard = () => {
-    const doacoesRecentes = [...doacoes]
+    // Sempre pega as 10 mais recentes por data; a ordem de EXIBIÇÃO dessas 10
+    // é que muda conforme o seletor (doador por padrão, ou data e hora).
+    const dezMaisRecentes = [...doacoes]
       .sort((a, b) => {
         const dataA = a.data_criacao?.toDate?.() || new Date(a.data_criacao || 0);
         const dataB = b.data_criacao?.toDate?.() || new Date(b.data_criacao || 0);
         return dataB - dataA;
       })
       .slice(0, 10);
+    const doacoesRecentes = ordenarDoacoes(dezMaisRecentes, ordemRecentes);
 
     const semNadaRecebido = resumos.filter(
       (resumo) => resumo.totalItens > 0 && resumo.recebido === 0
@@ -308,7 +312,19 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
 
         <RelatorioPorEquipe resumos={resumos} />
 
-        <h3 className="titulo-secao nao-imprimir">Doações Recentes</h3>
+        <div className="cabecalho-equipe nao-imprimir">
+          <h3 className="titulo-secao" style={{ margin: 0 }}>
+            Doações Recentes
+          </h3>
+          <select
+            value={ordemRecentes}
+            onChange={(evento) => setOrdemRecentes(evento.target.value)}
+            className="select-equipe"
+          >
+            <option value="doador">Ordenar por doador</option>
+            <option value="data">Ordenar por data e hora</option>
+          </select>
+        </div>
         <table className="tabela nao-imprimir">
           <thead>
             <tr>
