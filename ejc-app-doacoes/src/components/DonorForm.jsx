@@ -52,20 +52,32 @@ function DonorForm({ equipes, itens, onVoltar }) {
    * O doador não escolhe equipe — vê um catálogo único, com a quantidade
    * somada de todas as equipes que pedem aquele item (mesmo nome). O rateio
    * entre equipes acontece na hora de gravar, em confirmarDoacao.
+   *
+   * "necessario" aqui é o que AINDA FALTA (meta menos o que já foi
+   * registrado como doado), não a meta original — "itens.recebido" sobe na
+   * hora do registro da doação (registrarDoacaoRateada), mesmo antes da
+   * entrega/retirada acontecer de verdade. Isso evita o catálogo continuar
+   * pedindo um item que já foi todo prometido por outra pessoa, e atualiza
+   * sozinho pra quem está com a tela aberta (onSnapshot em tempo real).
+   * Item com meta zerada some da prateleira — não fica mais disponível pra
+   * doação.
    */
   const catalogo = useMemo(() => {
     const grupos = new Map();
     itensDisponiveis.forEach((item) => {
       const chave = normalizarNome(item.nome);
+      const faltam = Math.max(0, (Number(item.quantidade) || 0) - (Number(item.recebido) || 0));
       if (!grupos.has(chave)) {
         // A unidade vem do primeiro item encontrado com esse nome — equipes
         // diferentes pedindo o "mesmo" item devem usar a mesma unidade
         // (ver aviso no REGRAS_FIREBASE.txt).
         grupos.set(chave, { chave, nome: item.nome, unidade: item.unidade || '', necessario: 0 });
       }
-      grupos.get(chave).necessario += Number(item.quantidade) || 0;
+      grupos.get(chave).necessario += faltam;
     });
-    return [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    return [...grupos.values()]
+      .filter((grupo) => grupo.necessario > 0)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }, [itensDisponiveis]);
 
   const handleInputChange = (evento) => {
