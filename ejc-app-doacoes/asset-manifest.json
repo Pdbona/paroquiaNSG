@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "./static/css/main.46a942e4.css",
-    "main.js": "./static/js/main.b3acc51f.js",
+    "main.js": "./static/js/main.1fe5d962.js",
     "static/media/nossa-senhora-guadalupe.png": "./static/media/nossa-senhora-guadalupe.2f21f750911256fceb53.png",
     "index.html": "./index.html",
     "main.46a942e4.css.map": "./static/css/main.46a942e4.css.map",
-    "main.b3acc51f.js.map": "./static/js/main.b3acc51f.js.map"
+    "main.1fe5d962.js.map": "./static/js/main.1fe5d962.js.map"
   },
   "entrypoints": [
     "static/css/main.46a942e4.css",
-    "static/js/main.b3acc51f.js"
+    "static/js/main.1fe5d962.js"
   ]
 }
