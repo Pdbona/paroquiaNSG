@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Doação EJC — Paróquia Nossa Senhora de Guadalupe</title>
+
+    <!--
+      Página de redirecionamento estática — link curto e exclusivo pros
+      doadores (paroquiaNSG/doacao_ejc_pnguadalupe/). Leva direto pro
+      formulário de doação do app real (ejc-app-doacoes/), pulando a tela
+      de escolha de perfil (Admin/Coordenador/Doador).
+
+      Esta cópia mora aqui na branch main só como fonte/documentação — o
+      arquivo que o navegador de fato carrega é o publicado manualmente na
+      branch gh-pages (mesmo caminho), porque o workflow de deploy
+      (.github/workflows/deploy.yml) só mexe na subpasta ejc-app-doacoes/
+      daquela branch. Se precisar alterar o destino do redirecionamento,
+      edite os dois lugares (aqui e na gh-pages) ou publique este arquivo
+      direto lá com git.
+
+      O parâmetro "?doador" é lido pelo App.jsx (função telaInicial) pra
+      pular a tela de login e abrir já no formulário de doação.
+    -->
+    <meta http-equiv="refresh" content="0; url=../ejc-app-doacoes/?doador" />
+    <link rel="canonical" href="../ejc-app-doacoes/?doador" />
+    <script>
+      location.replace('../ejc-app-doacoes/?doador');
+    </script>
+  </head>
+  <body>
+    <p>
+      Redirecionando para a página de doação...
+      <a href="../ejc-app-doacoes/?doador">Clique aqui se não for redirecionado automaticamente</a>.
+    </p>
+  </body>
+</html>
