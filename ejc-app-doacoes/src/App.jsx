@@ -16,8 +16,17 @@ function ordenarPorNome(registros) {
   );
 }
 
+// Link exclusivo pro doador (?doador na URL) cai direto no formulário de
+// doação, sem passar pela tela de escolha de perfil — usado pelo link curto
+// paroquiaNSG/doacao_ejc_pnguadalupe/, que redireciona pra cá com esse
+// parâmetro. O link "cheio" (sem ?doador) continua mostrando as 4 opções
+// normalmente.
+function telaInicial() {
+  return new URLSearchParams(window.location.search).has('doador') ? 'doador' : 'login';
+}
+
 function App() {
-  const [view, setView] = useState('login'); // login, admin, coord-geral, coord-equipe, doador
+  const [view, setView] = useState(telaInicial); // login, admin, coord-geral, coord-equipe, doador
   const [user, setUser] = useState(null);
   const [equipes, setEquipes] = useState([]);
   const [itens, setItens] = useState([]);
