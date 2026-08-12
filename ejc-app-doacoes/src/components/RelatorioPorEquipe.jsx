@@ -19,6 +19,11 @@ import { formatarQuantidadeUnidade } from '../utils/formato';
 function RelatorioPorEquipe({ resumos }) {
   const [tipo, setTipo] = useState('tudo');
   const totalItens = resumos.reduce((total, resumo) => total + resumo.totalItens, 0);
+  // Coordenador de Equipe só vê a própria equipe (um card só na tela). Sem
+  // outras equipes ao lado pra preencher a largura, a lista "doado" fica em
+  // 3 colunas dentro do próprio card — mesmo aproveitamento de espaço que o
+  // Admin/Coordenador Geral têm ao ver várias equipes lado a lado.
+  const cardUnico = resumos.length === 1;
 
   return (
     <div className="relatorio-equipes">
@@ -97,18 +102,25 @@ function RelatorioPorEquipe({ resumos }) {
                   return itensDoados.length === 0 ? (
                     <p className="coluna-equipe-vazia">Nenhuma doação recebida ainda.</p>
                   ) : (
-                    <div className="grade-itens-equipe">
+                    // Lista de uma coluna, um item por linha — a grade lado a
+                    // lado (usada em "tudo"/"falta") embaralhava a leitura
+                    // aqui porque cada item só tem nome+qtd, sem barra de
+                    // progresso pra ocupar a largura da coluna.
+                    <ul
+                      className={
+                        cardUnico ? 'lista-itens-doados lista-itens-doados--3col' : 'lista-itens-doados'
+                      }
+                    >
                       {itensDoados.map((item) => (
-                        <div key={item.chave} className="linha-item-coluna">
-                          <div className="linha-item-cabecalho">
-                            <span className="linha-item-nome">{item.nome}</span>
-                            <span className="linha-item-numeros">
-                              {formatarQuantidadeUnidade(item.quantidade, item.unidade)}
-                            </span>
-                          </div>
-                        </div>
+                        <li key={item.chave} className="item-doado">
+                          <span className="item-doado-nome">{item.nome}</span>
+                          <span className="item-doado-linha" aria-hidden="true" />
+                          <span className="item-doado-qtd">
+                            {formatarQuantidadeUnidade(item.quantidade, item.unidade)}
+                          </span>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   );
                 })()}
 

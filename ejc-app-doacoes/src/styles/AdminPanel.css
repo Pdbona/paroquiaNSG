@@ -452,6 +452,71 @@
   font-size: 11px;
 }
 
+/* Lista "só o que foi doado" — uma coluna, um item por linha, nome à
+   esquerda e quantidade à direita ligados por um traço pontilhado (efeito
+   recibo), fácil de escanear mesmo com muitos itens ou nomes longos. */
+.lista-itens-doados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item-doado {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.item-doado:last-child {
+  border-bottom: none;
+}
+
+.item-doado-nome {
+  font-weight: 600;
+  color: #1B5E3F;
+  font-size: 13px;
+}
+
+.item-doado-linha {
+  flex: 1;
+  border-bottom: 1px dotted #ccc;
+  margin-bottom: 3px;
+  min-width: 12px;
+}
+
+.item-doado-qtd {
+  font-weight: 700;
+  color: #8B4513;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Só usada quando a tela mostra uma equipe só (Coordenador de Equipe) —
+   divide a lista em colunas estilo jornal (preenche de cima pra baixo antes
+   de passar pra próxima), no lugar de ficar tudo empilhado numa coluna só. */
+.lista-itens-doados--3col {
+  column-count: 3;
+  column-gap: 28px;
+}
+
+.lista-itens-doados--3col .item-doado {
+  break-inside: avoid;
+}
+
+@media (max-width: 900px) {
+  .lista-itens-doados--3col {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .lista-itens-doados--3col {
+    column-count: 1;
+  }
+}
+
 @media (max-width: 480px) {
   .colunas-equipes {
     grid-template-columns: 1fr;
