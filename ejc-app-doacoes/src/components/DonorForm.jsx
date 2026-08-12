@@ -145,8 +145,12 @@ function DonorForm({ equipes, itens, onVoltar }) {
       setErro('E-mail inválido');
       return;
     }
-    if (formData.cep && !cepValido(formData.cep)) {
-      setErro('O CEP deve ter 8 dígitos (ou deixe em branco)');
+    if (!formData.cep.trim()) {
+      setErro('Digite seu CEP');
+      return;
+    }
+    if (!cepValido(formData.cep)) {
+      setErro('O CEP deve ter 8 dígitos');
       return;
     }
 
@@ -414,7 +418,7 @@ function DonorForm({ equipes, itens, onVoltar }) {
             </div>
 
             <div className="formulario-grupo">
-              <label>CEP (opcional)</label>
+              <label>CEP *</label>
               <div className="cep-input">
                 <input
                   type="text"
