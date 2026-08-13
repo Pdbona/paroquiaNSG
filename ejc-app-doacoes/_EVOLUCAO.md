@@ -116,6 +116,24 @@ relatório geral. Login por PIN (não é Firebase Auth de verdade — ver seçã
      mammoth) e ainda assim não lida bem com tabelas; CSV/TXT colado cobre o
      caso real ("parei de cadastrar um por um") sem essa fragilidade.
 
+4. **Doador com "permissão negada" ao registrar doação** (13/ago/2026):
+   coordenador relatou o erro tentando doar Farinha de mandioca (2kg) pra
+   Cozinha. Investigação (Firebase Console, com a extensão Claude in Chrome):
+   Authentication > Anônimo ativado ✅, regras publicadas batendo com o BLOCO
+   A do `REGRAS_FIREBASE.txt` ✅, e o item "Farinha de mandioca" com `nome` e
+   `quantidade` válidos no Firestore ✅ — nenhuma das causas óbvias. Sobrou o
+   comportamento do próprio app: `garantirSessaoAnonima()` (`services/auth.js`)
+   roda em segundo plano no carregamento e, se falhar (comum em navegadores
+   internos de app — WhatsApp, Instagram —, que bloqueiam o armazenamento que
+   o Firebase Auth usa), o app segue funcionando normalmente até a gravação
+   cair em "permissão negada" sem chance de recuperação. Corrigido em
+   `DonorForm.jsx` (`confirmarDoacao`): tenta `garantirSessaoAnonima()` de
+   novo bem antes de gravar (não só no carregamento), e se ainda assim vier
+   `permission-denied`, mostra um aviso que o doador consegue agir ("abra
+   este link no Chrome/Safari, não no navegador do WhatsApp") em vez da
+   mensagem técnica de `mensagemDeErro` (`services/db.js`), que é escrita pro
+   Admin conferir o Firebase Console — confusa pra quem só está doando.
+
 ## Decisões que ficam valendo pro próximo app do EJC
 
 Se/quando o próximo app do EJC for criado neste mesmo repositório e projeto

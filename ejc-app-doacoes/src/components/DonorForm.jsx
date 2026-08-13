@@ -3,6 +3,7 @@ import '../styles/DonorForm.css';
 import axios from 'axios';
 import BrandLogo from './BrandLogo';
 import { registrarDoacaoRateada, mensagemDeErro } from '../services/db';
+import { garantirSessaoAnonima } from '../services/auth';
 import { ratearEntreEquipes } from '../utils/agregacoes';
 import {
   formatarCEP,
@@ -220,6 +221,16 @@ function DonorForm({ equipes, itens, onVoltar }) {
       setSalvando(true);
       setErro('');
 
+      // O login anônimo do App.jsx roda no carregamento da página, em segundo
+      // plano — se ele falhar naquele momento (comum em navegadores internos
+      // de app, tipo WhatsApp/Instagram, que bloqueiam o armazenamento que o
+      // Firebase Auth usa), o app segue funcionando normalmente até cair bem
+      // aqui, na hora de gravar. Tenta de novo agora, que é quando realmente
+      // importa: se conseguir, a gravação segue normal; se não conseguir e as
+      // regras exigirem login, o catch abaixo mostra um aviso que a pessoa
+      // consegue agir (não a mensagem técnica pensada pro Admin).
+      await garantirSessaoAnonima();
+
       const dadosDoador = {
         doador_nome: formData.nome.trim(),
         doador_email: formData.email.trim(),
@@ -274,7 +285,20 @@ function DonorForm({ equipes, itens, onVoltar }) {
       await registrarDoacaoRateada(alocacoes, dadosDoador);
       setEtapa('sucesso');
     } catch (problema) {
-      setErro(`Erro ao registrar doação: ${mensagemDeErro(problema)}`);
+      // "permission-denied" aqui, depois de já ter tentado o login anônimo de
+      // novo acima, quase sempre é o navegador bloqueando o login (WhatsApp/
+      // Instagram in-app, ou modo privado) — não faz sentido mandar o doador
+      // conferir o Firebase Console (mensagemDeErro é escrita pro Admin).
+      if (problema?.code === 'permission-denied') {
+        setErro(
+          'Não foi possível registrar sua doação agora. Isso costuma acontecer quando o link é ' +
+            'aberto pelo navegador interno do WhatsApp ou Instagram. Toque em "⋮" ou no ícone de ' +
+            'compartilhar e escolha "Abrir no navegador" (Chrome ou Safari), depois registre de ' +
+            'novo. Se o problema continuar, avise a organização do evento.'
+        );
+      } else {
+        setErro(`Erro ao registrar doação: ${mensagemDeErro(problema)}`);
+      }
     } finally {
       setSalvando(false);
     }
