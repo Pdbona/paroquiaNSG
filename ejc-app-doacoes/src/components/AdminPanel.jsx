@@ -270,16 +270,11 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   );
 
   const renderDashboard = () => {
-    // Sempre pega as 10 mais recentes por data; a ordem de EXIBIÇÃO dessas 10
-    // é que muda conforme o seletor (doador por padrão, ou data e hora).
-    const dezMaisRecentes = [...doacoes]
-      .sort((a, b) => {
-        const dataA = a.data_criacao?.toDate?.() || new Date(a.data_criacao || 0);
-        const dataB = b.data_criacao?.toDate?.() || new Date(b.data_criacao || 0);
-        return dataB - dataA;
-      })
-      .slice(0, 10);
-    const doacoesRecentes = ordenarDoacoes(dezMaisRecentes, ordemRecentes);
+    // Lista completa das doações; a ordem de EXIBIÇÃO muda conforme o
+    // seletor (doador por padrão, ou data e hora). Antes ficava truncada nas
+    // 10 mais recentes, escondendo o resto — corrigido porque Coordenador
+    // Geral e Coordenador de Equipe já mostram a lista inteira.
+    const doacoesRecentes = ordenarDoacoes(doacoes, ordemRecentes);
 
     const semNadaRecebido = resumos.filter(
       (resumo) => resumo.totalItens > 0 && resumo.recebido === 0
@@ -314,7 +309,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
 
         <div className="cabecalho-equipe nao-imprimir">
           <h3 className="titulo-secao" style={{ margin: 0 }}>
-            Doações Recentes
+            Todas as Doações
           </h3>
           <select
             value={ordemRecentes}
