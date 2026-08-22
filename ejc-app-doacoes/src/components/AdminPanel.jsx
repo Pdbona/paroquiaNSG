@@ -4,7 +4,14 @@ import BrandLogo from './BrandLogo';
 import RelatorioPorEquipe from './RelatorioPorEquipe';
 import DetalheDoadorModal from './DetalheDoadorModal';
 import ImportarItensModal from './ImportarItensModal';
-import { adicionar, atualizar, remover, mensagemDeErro, MODO_MOCK } from '../services/db';
+import {
+  adicionar,
+  atualizar,
+  atualizarQuantidadeDoacao,
+  remover,
+  mensagemDeErro,
+  MODO_MOCK,
+} from '../services/db';
 import { criarCoordenador, redefinirPin } from '../services/auth';
 import { resumoEquipe, ordenarDoacoes } from '../utils/agregacoes';
 import {
@@ -24,6 +31,8 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   const [doadorSelecionado, setDoadorSelecionado] = useState(null);
   const [mostrarImportar, setMostrarImportar] = useState(false);
   const [ordemRecentes, setOrdemRecentes] = useState('doador');
+  const [doacaoEditando, setDoacaoEditando] = useState(null);
+  const [quantidadeDoacaoEditada, setQuantidadeDoacaoEditada] = useState('');
 
   // Itens
   const [filtroEquipeItens, setFiltroEquipeItens] = useState('');
@@ -54,6 +63,33 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
   };
 
   const resumos = equipes.map((equipe) => resumoEquipe(equipe, itens, doacoes));
+
+  // -------------------------------------------------------------- Doações
+
+  const iniciarEdicaoDoacao = (doacao) => {
+    setDoacaoEditando(doacao.id);
+    setQuantidadeDoacaoEditada(String(doacao.quantidade));
+  };
+
+  const salvarQuantidadeDoacao = async (doacao) => {
+    const novaQuantidade = parseInt(quantidadeDoacaoEditada, 10);
+
+    if (!Number.isFinite(novaQuantidade) || novaQuantidade <= 0) {
+      avisar('', 'Digite uma quantidade maior que zero');
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      await atualizarQuantidadeDoacao(doacao, novaQuantidade);
+      setDoacaoEditando(null);
+      avisar('Quantidade doada atualizada!');
+    } catch (problema) {
+      avisar('', `Erro ao atualizar: ${mensagemDeErro(problema)}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
 
   // ---------------------------------------------------------------- Equipes
 
@@ -329,23 +365,41 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
               <th>Equipe</th>
               <th>Doador</th>
               <th>Telefone</th>
+              <th className="nao-imprimir">Ações</th>
             </tr>
           </thead>
           <tbody>
             {doacoesRecentes.length === 0 ? (
               <tr>
-                <td colSpan="6" className="celula-vazia">
+                <td colSpan="7" className="celula-vazia">
                   Nenhuma doação recebida ainda
                 </td>
               </tr>
             ) : (
               doacoesRecentes.map((doacao) => {
                 const equipe = equipes.find((item) => item.id === doacao.equipe_id);
+                const emEdicao = doacaoEditando === doacao.id;
                 return (
                   <tr key={doacao.id}>
                     <td>{formatarDataHora(doacao.data_criacao)}</td>
                     <td>{doacao.item_nome}</td>
-                    <td>{formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)}</td>
+                    <td>
+                      {emEdicao ? (
+                        <input
+                          type="number"
+                          min="1"
+                          value={quantidadeDoacaoEditada}
+                          onChange={(evento) => setQuantidadeDoacaoEditada(evento.target.value)}
+                          onKeyDown={(evento) =>
+                            evento.key === 'Enter' && salvarQuantidadeDoacao(doacao)
+                          }
+                          className="input-quantidade"
+                          autoFocus
+                        />
+                      ) : (
+                        formatarQuantidadeUnidade(doacao.quantidade, doacao.item_unidade)
+                      )}
+                    </td>
                     <td>{equipe ? equipe.nome : 'Indefinida'}</td>
                     <td>
                       <button className="link-doador" onClick={() => setDoadorSelecionado(doacao)}>
@@ -353,6 +407,32 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                       </button>
                     </td>
                     <td>{doacao.doador_telefone}</td>
+                    <td className="celula-acoes nao-imprimir">
+                      {emEdicao ? (
+                        <>
+                          <button
+                            className="btn-success btn-mini"
+                            onClick={() => salvarQuantidadeDoacao(doacao)}
+                            disabled={salvando}
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            className="btn-secondary btn-mini"
+                            onClick={() => setDoacaoEditando(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="btn-secondary btn-mini"
+                          onClick={() => iniciarEdicaoDoacao(doacao)}
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })

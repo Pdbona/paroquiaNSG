@@ -145,3 +145,26 @@ export async function mockRegistrarDoacaoRateada(alocacoes, dadosDoador) {
   notificar('doacoes');
   notificar('itens');
 }
+
+/** Espelha o comportamento de atualizarQuantidadeDoacao (services/db.js). */
+export async function mockAtualizarQuantidadeDoacao(doacao, novaQuantidade) {
+  garantirColecao('doacoes');
+  garantirColecao('itens');
+
+  const indiceDoacao = store.doacoes.findIndex((registro) => registro.id === doacao.id);
+  if (indiceDoacao === -1) throw new Error(`Doação ${doacao.id} não existe`);
+
+  const diferenca = novaQuantidade - (Number(doacao.quantidade) || 0);
+  store.doacoes[indiceDoacao] = { ...store.doacoes[indiceDoacao], quantidade: novaQuantidade };
+
+  if (doacao.item_id && diferenca !== 0) {
+    const indiceItem = store.itens.findIndex((item) => item.id === doacao.item_id);
+    if (indiceItem !== -1) {
+      const atual = Number(store.itens[indiceItem].recebido) || 0;
+      store.itens[indiceItem] = { ...store.itens[indiceItem], recebido: atual + diferenca };
+    }
+  }
+
+  notificar('doacoes');
+  notificar('itens');
+}

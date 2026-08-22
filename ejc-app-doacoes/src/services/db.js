@@ -24,6 +24,7 @@ import {
   mockAtualizar,
   mockRemover,
   mockRegistrarDoacaoRateada,
+  mockAtualizarQuantidadeDoacao,
 } from './mockFirestore';
 
 // Só cai no mock em desenvolvimento. Em produção sem credencial o app mostra
@@ -149,6 +150,33 @@ export async function registrarDoacaoRateada(alocacoes, dadosDoador) {
       recebido: increment(alocacao.quantidade),
     });
   });
+
+  await lote.commit();
+}
+
+/**
+ * Corrige a quantidade de uma doação já registrada — o Admin usa isso pra
+ * consertar erro de digitação (do doador ou de quem lançou) sem precisar
+ * apagar e recriar o registro.
+ *
+ * O contador "recebido" do item é ajustado pela DIFERENÇA entre a
+ * quantidade nova e a antiga (via increment), nunca sobrescrito: ele soma
+ * doações de vários doadores, então substituir o valor apagaria a
+ * contribuição de todo mundo.
+ */
+export async function atualizarQuantidadeDoacao(doacao, novaQuantidade) {
+  if (MODO_MOCK) return mockAtualizarQuantidadeDoacao(doacao, novaQuantidade);
+  if (CONFIG_AUSENTE) throw ERRO_SEM_CONFIG;
+
+  const diferenca = novaQuantidade - (Number(doacao.quantidade) || 0);
+  const lote = writeBatch(db);
+
+  lote.update(doc(db, caminhoColecao('doacoes'), doacao.id), { quantidade: novaQuantidade });
+  if (doacao.item_id && diferenca !== 0) {
+    lote.update(doc(db, caminhoColecao('itens'), doacao.item_id), {
+      recebido: increment(diferenca),
+    });
+  }
 
   await lote.commit();
 }
