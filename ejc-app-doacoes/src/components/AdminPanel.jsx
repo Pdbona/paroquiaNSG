@@ -42,6 +42,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
     quantidade: '',
     unidade: '',
     unidadeOutra: '',
+    recebido: '',
   });
 
   // Equipes
@@ -726,6 +727,12 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
 
   // Resolve o valor final da unidade: o que veio do select, ou o texto
   // livre quando a pessoa escolheu "Outra".
+  //
+  // "recebido" também é editável aqui: é um contador manual no próprio
+  // item (usado pela tela pública do doador pra ratear sem ler a
+  // collection "doacoes"), não a soma automática das doações — o Admin
+  // usa isso pra lançar recebimento que chegou fora do app (entrega
+  // direta, sem passar pelo formulário do doador).
   const resolverUnidadeItem = (selecionada, textoLivre) => {
     if (selecionada === 'outra') return textoLivre.trim();
     return selecionada;
@@ -739,6 +746,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
       quantidade: String(item.quantidade),
       unidade: item.unidade ? (unidadeConhecida ? item.unidade : 'outra') : '',
       unidadeOutra: item.unidade && !unidadeConhecida ? item.unidade : '',
+      recebido: String(item.recebido || 0),
     });
   };
 
@@ -746,6 +754,7 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
     const nome = dadosItemEditado.nome.trim();
     const quantidade = parseInt(dadosItemEditado.quantidade, 10);
     const unidade = resolverUnidadeItem(dadosItemEditado.unidade, dadosItemEditado.unidadeOutra);
+    const recebido = parseInt(dadosItemEditado.recebido, 10);
 
     if (!nome) {
       avisar('', 'O nome do item não pode ficar vazio');
@@ -763,10 +772,20 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
       avisar('', 'Digite uma quantidade maior que zero');
       return;
     }
+    if (!Number.isFinite(recebido) || recebido < 0) {
+      avisar('', 'Digite uma quantidade recebida válida (0 ou mais)');
+      return;
+    }
 
     try {
       setSalvando(true);
-      await atualizar('itens', item.id, { nome, quantidade, unidade, atualizado_em: new Date() });
+      await atualizar('itens', item.id, {
+        nome,
+        quantidade,
+        unidade,
+        recebido,
+        atualizado_em: new Date(),
+      });
       setItemEditando(null);
       avisar('Item atualizado!');
     } catch (problema) {
@@ -922,7 +941,24 @@ function AdminPanel({ user, equipes, itens, doacoes, coordenadores, onLogout }) 
                         formatarQuantidadeUnidade(item.quantidade, item.unidade)
                       )}
                     </td>
-                    <td>{formatarQuantidadeUnidade(item.recebido || 0, item.unidade)}</td>
+                    <td>
+                      {emEdicao ? (
+                        <input
+                          type="number"
+                          min="0"
+                          value={dadosItemEditado.recebido}
+                          onChange={(evento) =>
+                            setDadosItemEditado({
+                              ...dadosItemEditado,
+                              recebido: evento.target.value,
+                            })
+                          }
+                          className="input-quantidade"
+                        />
+                      ) : (
+                        formatarQuantidadeUnidade(item.recebido || 0, item.unidade)
+                      )}
+                    </td>
                     <td className="celula-acoes">
                       {emEdicao ? (
                         <>
