@@ -1,0 +1,55 @@
+:root {
+  --gpe-verde-escuro: #0F3A28;
+  --gpe-verde: #1B5E3F;
+  --gpe-verde-claro: #5AA389;
+  --gpe-dourado: #D4AF37;
+  --gpe-dourado-claro: #E4C55E;
+  --gpe-terracota: #8B4513;
+  --gpe-vinho: #6B2737;
+  --gpe-marfim: #FFFFF0;
+  --gpe-marfim-escuro: #E8DCC8;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--gpe-marfim);
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Impressão do cronograma (Cadastro > Encontro > EJC) — ver .imprimir-area
+   em EJCApp.jsx. Esconde tudo, exceto a área marcada, só na impressão. */
+.imprimir-area {
+  display: none;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .imprimir-area,
+  .imprimir-area * {
+    visibility: visible;
+  }
+  .imprimir-area {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+    color: #000;
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

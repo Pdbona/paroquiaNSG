@@ -1,0 +1,67 @@
+=================================================================================
+REGRAS DO FIRESTORE - APP CRONOGRAMA AO VIVO (ejc-app-cronograma)
+=================================================================================
+
+IMPORTANTE — projeto Firebase compartilhado: "paroquiansg-2f648" já hospeda o
+app ejc-app-doacoes. Este app soma um bloco NOVO às regras existentes — NÃO
+substitui o bloco do ejc-app-doacoes, senão aquele app perde o acesso ao
+banco. Ver nota equivalente em ejc-app-doacoes/REGRAS_FIREBASE.txt.
+
+Caminho fixo deste app: "apps/cronograma/eventos/{eventoId}" (um documento só
+por edição do encontro, com o cronograma inteiro dentro — não são várias
+collections como no ejc-app-doacoes). Ver DOC_PATH em
+src/components/EJCApp.jsx.
+
+---------------------------------------------------------------------------------
+O QUE FAZER
+---------------------------------------------------------------------------------
+
+1. Firebase Console > Firestore Database > Regras.
+2. NÃO apague o que já está lá (o bloco `match /apps/doacoes/...` do app de
+   Doações, e o catch-all `match /{document=**} { allow read, write: if false; }`
+   no final).
+3. Cole o BLOCO abaixo em qualquer lugar DENTRO de
+   `service cloud.firestore { match /databases/{database}/documents { ... } }`,
+   antes do catch-all (não é obrigatório ficar antes — as regras do Firestore
+   liberam o acesso se QUALQUER bloco que bater com o caminho permitir, então
+   um "allow: if true" aqui não é bloqueado pelo "if false" do catch-all lá
+   embaixo — mas deixar antes do catch-all deixa o arquivo mais fácil de ler).
+4. Publicar.
+
+=================================================================================
+BLOCO — COLE ISTO (somando ao que já existe, não substituindo)
+=================================================================================
+
+    // ejc-app-cronograma — regras abertas de propósito: é uma ferramenta
+    // interna de um único evento (cronograma ao vivo + escalas de equipe),
+    // sem dados pessoais sensíveis. Qualquer um com a URL do app lê/escreve.
+    match /apps/cronograma/eventos/{eventoId} {
+      allow read, write: if true;
+    }
+
+=================================================================================
+COMO FICA O ARQUIVO INTEIRO DEPOIS (exemplo, com os dois blocos)
+=================================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- bloco do ejc-app-doacoes (já existente, não mexer) ----
+    match /apps/doacoes/equipes/{equipeId} { ... }
+    match /apps/doacoes/itens/{itemId} { ... }
+    match /apps/doacoes/doacoes/{doacaoId} { ... }
+    match /apps/doacoes/coordenadores/{coordenadorId} { ... }
+
+    // ---- bloco novo do ejc-app-cronograma ----
+    match /apps/cronograma/eventos/{eventoId} {
+      allow read, write: if true;
+    }
+
+    // ---- catch-all (já existente, deixa por último) ----
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

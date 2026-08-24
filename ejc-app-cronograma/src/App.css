@@ -1,0 +1,36 @@
+:root {
+  --gpe-verde-escuro: #0F3A28;
+  --gpe-verde: #1B5E3F;
+  --gpe-verde-claro: #5AA389;
+  --gpe-dourado: #D4AF37;
+  --gpe-dourado-claro: #E4C55E;
+  --gpe-terracota: #8B4513;
+  --gpe-vinho: #6B2737;
+  --gpe-marfim: #FFFFF0;
+  --gpe-marfim-escuro: #E8DCC8;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background: var(--gpe-marfim);
+  color: var(--gpe-verde-escuro);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+}
+
+button {
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
