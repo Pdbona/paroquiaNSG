@@ -403,16 +403,19 @@ function construirTarefasEquipeSemente(cronograma) {
     ...JANTAR_SABADO_SEMENTE.map((t) => ({ ...t, origem: 'jantar', tarefa: 'Servir o Jantar' })),
   ];
   listasComHoraPropria.forEach((t) => {
-    tarefas.push({ id: `te-${n++}`, dia: t.dia, equipeNome: t.equipeNome, tarefa: t.tarefa, origem: t.origem, hora: t.hora, duracaoMin: t.duracaoMin, cronogramaItemId: null });
+    // Sem duracaoMin: Vigília/Almoço/Jantar só têm hora de início na fonte —
+    // o fim de cada plantão é calculado sozinho (ver comFimAteProximoDaMesmaEscala).
+    tarefas.push({ id: `te-${n++}`, dia: t.dia, equipeNome: t.equipeNome, tarefa: t.tarefa, origem: t.origem, hora: t.hora, cronogramaItemId: null });
   });
 
   return tarefas;
 }
 
 // Capela Mariana — aplica-se automaticamente a Sábado e Domingo (ver função
-// que resolve a timeline do dia, mais abaixo).
+// que resolve a timeline do dia, mais abaixo). Sem duracaoMin, mesmo motivo
+// acima.
 function construirCapelaMarianaSemente() {
-  return CAPELA_MARIANA_SEMENTE.map((t, i) => ({ id: `cap-${i}`, hora: t.hora, duracaoMin: t.duracaoMin, equipeNome: t.equipeNome }));
+  return CAPELA_MARIANA_SEMENTE.map((t, i) => ({ id: `cap-${i}`, hora: t.hora, equipeNome: t.equipeNome }));
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +530,17 @@ function ehEquipeEncontristas(equipeNome) {
   return (equipeNome || '').trim().toLowerCase() === EQUIPE_ENCONTRISTAS.toLowerCase();
 }
 
+// Identidade visual de cada tipo de tarefa de equipe — só pra dar uma
+// identificada rápida na coluna dos Servos (ícone + nome curto). Tarefas
+// origem 'cronograma' não levam selo — são o "padrão", ligadas a um momento
+// específico do encontrista.
+const ORIGEM_INFO = {
+  vigilia: { icone: '🕯️', label: 'Vigília', cor: CORES.dourado },
+  capela: { icone: '⛪', label: 'Capela Mariana', cor: CORES.dourado },
+  almoco: { icone: '🍽️', label: 'Almoço', cor: CORES.terracota },
+  jantar: { icone: '🌙', label: 'Jantar', cor: CORES.terracota },
+};
+
 // Resolve a hora/duração efetiva de uma tarefa: se nasceu de um momento do
 // cronograma, segue o horário ATUAL desse item (já refletindo qualquer
 // cascata de atraso/adiantamento do Coordenador); senão usa a hora própria
@@ -538,6 +552,32 @@ function resolverTarefaEquipe(tarefa, cronogramaPorId) {
     return { hora: item.hora, duracaoMin: item.duracaoMin };
   }
   return { hora: tarefa.hora, duracaoMin: tarefa.duracaoMin };
+}
+
+// Vigília, Almoço, Jantar e Capela Mariana não têm duração de verdade na
+// fonte — só "a partir de tal horário". O fim de cada plantão é sempre
+// CALCULADO aqui como "até começar o próximo plantão da mesma escala",
+// nunca guardado, pra continuar certo mesmo depois que o Dirigente adicionar
+// ou editar plantões pelo Cadastro. Cada origem forma sua própria linha do
+// tempo independente (a Vigília de uma equipe não "corta" o plantão de
+// Almoço de outra, mesmo que ambos apareçam juntos na mesma lista final).
+function comFimAteProximoDaMesmaEscala(lista) {
+  const porOrigem = new Map();
+  lista.forEach((t) => {
+    if (!porOrigem.has(t.origem)) porOrigem.set(t.origem, []);
+    porOrigem.get(t.origem).push(t);
+  });
+  const resultado = [];
+  porOrigem.forEach((grupo) => {
+    const horasDistintas = [...new Set(grupo.map((t) => t.hora))].sort((a, b) => horaParaMin(a) - horaParaMin(b));
+    grupo.forEach((t) => {
+      const idx = horasDistintas.indexOf(t.hora);
+      const proximaHora = horasDistintas[idx + 1];
+      const duracaoMin = proximaHora ? horaParaMin(proximaHora) - horaParaMin(t.hora) : Math.max(1, 1440 - horaParaMin(t.hora));
+      resultado.push({ ...t, duracaoMin });
+    });
+  });
+  return resultado;
 }
 
 // Monta a timeline de tarefas de equipe de um dia específico, já com hora
@@ -554,24 +594,30 @@ function tarefasEquipeDoDia(tarefasEquipe, capelaMariana, cronograma, dia) {
         tarefa: 'Capela Mariana',
         origem: 'capela',
         hora: c.hora,
-        duracaoMin: c.duracaoMin,
       }))
     : [];
+  const todas = [...doDia, ...capelaComoTarefas];
 
-  return [...doDia, ...capelaComoTarefas]
+  const deCronograma = todas
+    .filter((t) => t.origem === 'cronograma')
     .map((t) => {
       const r = resolverTarefaEquipe(t, cronogramaPorId);
       return r ? { ...t, hora: r.hora, duracaoMin: r.duracaoMin } : null;
     })
-    .filter(Boolean)
-    .sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
+    .filter(Boolean);
+
+  const deEscalasPropriaHora = comFimAteProximoDaMesmaEscala(todas.filter((t) => t.origem !== 'cronograma'));
+
+  return [...deCronograma, ...deEscalasPropriaHora].sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
 }
 
 // Dado um instante (minAgora), separa a timeline resolvida em "rolando agora"
-// (pode ser várias equipes ao mesmo tempo) e "começando em seguida".
+// (pode ser várias equipes ao mesmo tempo) e "o resto do dia" — sem cortar em
+// 6, senão escalas que só começam mais tarde (Vigília, por exemplo) somem da
+// tela por horas a fio. As telas que mostram isso já rolam (scroll).
 function classificarTarefasEquipe(tarefasResolvidas, minAgora) {
   if (minAgora < 0) {
-    return { atuais: [], proximas: tarefasResolvidas.slice(0, 6) };
+    return { atuais: [], proximas: tarefasResolvidas };
   }
   const atuais = tarefasResolvidas.filter((t) => {
     const inicio = horaParaMin(t.hora);
@@ -579,7 +625,7 @@ function classificarTarefasEquipe(tarefasResolvidas, minAgora) {
     return minAgora >= inicio && minAgora < fim;
   });
   const idsAtuais = new Set(atuais.map((t) => t.id));
-  const proximas = tarefasResolvidas.filter((t) => !idsAtuais.has(t.id) && horaParaMin(t.hora) > minAgora).slice(0, 6);
+  const proximas = tarefasResolvidas.filter((t) => !idsAtuais.has(t.id) && horaParaMin(t.hora) > minAgora);
   return { atuais, proximas };
 }
 
@@ -1045,7 +1091,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
       </div>
       <div style={{ ...estilos.telaMetade, paddingTop: 58 }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Encontristas</h2>
-        <p style={{ opacity: 0.7, marginTop: -8 }}>{DIAS_LABEL[diaAtivo]}</p>
+        <p style={{ opacity: 0.7, marginTop: -6, fontSize: 17 }}>{DIAS_LABEL[diaAtivo]}</p>
         {atual && <MomentoDestaque item={atual} tamanho="grande" cores={cores} />}
         {proximo && <MomentoDestaque item={proximo} tamanho="medio" cores={cores} rotulo="Próximo" />}
         <div style={{ marginTop: 16, opacity: 0.75 }}>
@@ -1056,7 +1102,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
       </div>
       <div style={{ ...estilos.telaMetade, paddingTop: 58, borderLeft: `2px solid ${CORES.dourado}44` }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Servos</h2>
-        <p style={{ opacity: 0.7, marginTop: -8 }}>{DIAS_LABEL[diaAtivo]}</p>
+        <p style={{ opacity: 0.7, marginTop: -6, fontSize: 17 }}>{DIAS_LABEL[diaAtivo]}</p>
         <div style={{ overflowY: 'auto', maxHeight: '72vh' }}>
           {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
             <p style={{ opacity: 0.5, fontSize: 14 }}>Nenhuma tarefa de equipe cadastrada pra este momento.</p>
@@ -1130,21 +1176,23 @@ function detectarAvisoMovimentoAtivo(itensDia, minAgora) {
   }) || null;
 }
 
+// Tamanhos do Telão são bem maiores que qualquer outra tela do app — é
+// projetor, visto de longe, não celular na mão.
 function MomentoDestaque({ item, tamanho, rotulo }) {
-  const tamanhos = { grande: 42, medio: 26 };
+  const tamanhos = { grande: 52, medio: 34 };
   return (
     <div style={{ margin: tamanho === 'grande' ? '18px 0' : '10px 0' }}>
-      {rotulo && <div style={{ fontSize: 13, letterSpacing: 1, opacity: 0.6, textTransform: 'uppercase' }}>{rotulo}</div>}
+      {rotulo && <div style={{ fontSize: 16, letterSpacing: 1, opacity: 0.6, textTransform: 'uppercase' }}>{rotulo}</div>}
       <div style={{ fontSize: tamanhos[tamanho], fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{item.hora}</div>
-      <div style={{ fontSize: tamanho === 'grande' ? 22 : 17 }}>{item.movimento}</div>
+      <div style={{ fontSize: tamanho === 'grande' ? 28 : 22 }}>{item.movimento}</div>
     </div>
   );
 }
 
 function LinhaMomentoPequena({ item }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '4px 0', fontSize: 14 }}>
-      <span style={{ opacity: 0.6, width: 48 }}>{item.hora}</span>
+    <div style={{ display: 'flex', gap: 14, padding: '6px 0', fontSize: 19 }}>
+      <span style={{ opacity: 0.6, width: 62 }}>{item.hora}</span>
       <span>{item.movimento}</span>
     </div>
   );
@@ -1157,26 +1205,29 @@ function LinhaMomentoPequena({ item }) {
 // pra chamar atenção — não é uma tarefa de servo, é um momento especial.
 function LinhaTarefaEquipeTelao({ tarefa, destaque }) {
   const especial = ehEquipeEncontristas(tarefa.equipeNome);
+  const info = ORIGEM_INFO[tarefa.origem];
+  const corSelo = especial ? CORES.dourado : info?.cor;
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '60px 1fr 2fr',
-        gap: 10,
-        padding: '8px 6px',
-        fontSize: destaque ? 16 : 13.5,
+        gridTemplateColumns: '78px 1fr 2fr',
+        gap: 12,
+        padding: '11px 12px',
+        fontSize: destaque ? 23 : 18,
         borderRadius: 6,
-        marginBottom: 4,
+        marginBottom: 5,
+        borderLeft: `4px solid ${corSelo ? `${corSelo}${destaque || especial ? '' : '77'}` : 'transparent'}`,
         background: especial ? `${CORES.dourado}30` : destaque ? `${CORES.dourado}18` : 'transparent',
-        opacity: destaque ? 1 : 0.65,
+        opacity: destaque ? 1 : 0.72,
       }}
     >
       <span style={{ opacity: 0.7 }}>{tarefa.hora}</span>
       <span style={{ fontWeight: destaque ? 700 : 500 }}>
-        {especial ? '✨ ' : ''}
+        {especial ? '✨ ' : info ? `${info.icone} ` : ''}
         {tarefa.equipeNome}
       </span>
-      <span>{tarefa.tarefa}</span>
+      <span>{info ? info.label : tarefa.tarefa}</span>
     </div>
   );
 }
@@ -1213,6 +1264,10 @@ function ModoCelular(props) {
 
   // Dirigente em Cadastro trabalha com listas maiores — marca d'água discreta.
   const mostrarMarcaDagua = isDirigente && abaTopo === 'cadastro';
+  // A visão "Ao Vivo" (Encontristas + Servos lado a lado) precisa de mais
+  // largura que as telas de Cadastro pra caber as duas colunas quando aberta
+  // num computador — ver PainelAoVivo, que usa CSS grid responsivo.
+  const mostrandoAoVivo = !isDirigente || abaTopo === 'encontro';
 
   function abrirCadastro() {
     if (abaTopo === 'cadastro') setMenuAberto((m) => !m);
@@ -1298,7 +1353,7 @@ function ModoCelular(props) {
         </>
       )}
 
-      <div style={{ padding: 16, maxWidth: 640, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+      <div style={{ padding: 16, maxWidth: mostrandoAoVivo ? 1100 : 640, margin: '0 auto', position: 'relative', zIndex: 1 }}>
         {!isDirigente && <PainelAoVivo {...props} podeEditar={isCoordenador} cores={cores} />}
 
         {isDirigente && abaTopo === 'encontro' && <PainelAoVivo {...props} podeEditar={false} cores={cores} />}
@@ -1628,41 +1683,47 @@ function PainelAoVivo(props) {
         </div>
       )}
 
-      <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Encontristas</h3>
-      <div>
-        {itensDia.map((item) => (
-          <LinhaMomentoCelular
-            key={item.id}
-            item={item}
-            destaque={atual && atual.id === item.id}
-            cores={cores}
-            editavel={podeEditar}
-            onEditar={() => setEditando(item)}
-          />
-        ))}
-      </div>
-
-      {mostrarPainelServos && (
-        <>
-          <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Servos</h3>
-          {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
-            <p style={{ fontSize: 13, opacity: 0.6 }}>Nenhuma tarefa de equipe cadastrada pra este dia ainda.</p>
-          )}
+      {/* Lado a lado quando há espaço (computador), empilhado no celular —
+          puro CSS grid, sem depender de media query nem JS de largura. */}
+      <div style={estilos.gridCronogramas}>
+        <div>
+          <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Encontristas</h3>
           <div>
-            {tarefasAtuais.map((t) => (
-              <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
-            ))}
-            {tarefasProximas.length > 0 && (
-              <div style={{ marginTop: tarefasAtuais.length ? 10 : 0, opacity: 0.55, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                A seguir
-              </div>
-            )}
-            {tarefasProximas.map((t) => (
-              <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />
+            {itensDia.map((item) => (
+              <LinhaMomentoCelular
+                key={item.id}
+                item={item}
+                destaque={atual && atual.id === item.id}
+                cores={cores}
+                editavel={podeEditar}
+                onEditar={() => setEditando(item)}
+              />
             ))}
           </div>
-        </>
-      )}
+        </div>
+
+        {mostrarPainelServos && (
+          <div>
+            <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Servos</h3>
+            {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
+              <p style={{ fontSize: 13, opacity: 0.6 }}>Nenhuma tarefa de equipe cadastrada pra este dia ainda.</p>
+            )}
+            <div>
+              {tarefasAtuais.map((t) => (
+                <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
+              ))}
+              {tarefasProximas.length > 0 && (
+                <div style={{ marginTop: tarefasAtuais.length ? 10 : 0, opacity: 0.55, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  A seguir
+                </div>
+              )}
+              {tarefasProximas.map((t) => (
+                <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {editando && (
         <ModalEditarMomento
@@ -1704,22 +1765,25 @@ function LinhaMomentoCelular({ item, destaque, cores, editavel, onEditar }) {
 // do telão, só que empilhada (uma equipe por linha, layout de celular).
 function LinhaTarefaEquipeCelular({ tarefa, destaque, cores }) {
   const especial = ehEquipeEncontristas(tarefa.equipeNome);
+  const info = ORIGEM_INFO[tarefa.origem];
+  const corSelo = especial ? CORES.dourado : info?.cor;
   return (
     <div
       style={{
         display: 'flex',
         gap: 10,
-        padding: '8px 12px',
+        padding: '9px 12px',
         marginBottom: 6,
         borderRadius: 8,
         alignItems: 'center',
+        borderLeft: `3px solid ${corSelo ? `${corSelo}${destaque || especial ? '' : '77'}` : 'transparent'}`,
         background: especial ? `${CORES.dourado}33` : destaque ? `${CORES.dourado}22` : cores.cartao,
         opacity: destaque ? 1 : 0.75,
       }}
     >
       <span style={{ opacity: 0.7, width: 48, fontSize: 13 }}>{tarefa.hora}</span>
       <span style={{ flex: 1, fontSize: 13.5 }}>
-        <strong>{especial ? '✨ ' : ''}{tarefa.equipeNome}</strong>: {tarefa.tarefa}
+        <strong>{especial ? '✨ ' : info ? `${info.icone} ` : ''}{tarefa.equipeNome}</strong>: {info ? info.label : tarefa.tarefa}
       </span>
     </div>
   );
@@ -2227,7 +2291,7 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
     .filter((t) => t.origem === origem && t.dia === diaSelecionado)
     .sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
 
-  const [novo, setNovo] = useState({ hora: '', duracaoMin: 30, equipeNome: '' });
+  const [novo, setNovo] = useState({ hora: '', equipeNome: '' });
 
   function adicionar() {
     if (!novo.hora || !novo.equipeNome) return;
@@ -2238,10 +2302,9 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
       tarefa: tarefaPadrao,
       origem,
       hora: novo.hora,
-      duracaoMin: novo.duracaoMin,
       cronogramaItemId: null,
     });
-    setNovo({ hora: '', duracaoMin: 30, equipeNome: '' });
+    setNovo({ hora: '', equipeNome: '' });
   }
 
   return (
@@ -2261,9 +2324,8 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
         <LinhaEscalaEditavel key={t.id} tarefa={t} equipes={equipes} onSalvar={onSalvar} onExcluir={() => onExcluir(t.id)} cores={cores} />
       ))}
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '90px 90px 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8 }}>
           <input type="time" value={novo.hora} onChange={(e) => setNovo({ ...novo, hora: e.target.value })} style={estilos.input} />
-          <input type="number" min={5} value={novo.duracaoMin} onChange={(e) => setNovo({ ...novo, duracaoMin: parseInt(e.target.value, 10) || 5 })} style={estilos.input} />
           <select value={novo.equipeNome} onChange={(e) => setNovo({ ...novo, equipeNome: e.target.value })} style={estilos.input}>
             <option value="">Equipe…</option>
             {equipes.map((eq) => (
@@ -2282,12 +2344,12 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
 // equipe de servo, é o próprio momento deles na Capela.
 function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }) {
   const itens = [...capelaMariana].sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
-  const [novo, setNovo] = useState({ hora: '', duracaoMin: 30, equipeNome: '' });
+  const [novo, setNovo] = useState({ hora: '', equipeNome: '' });
 
   function adicionar() {
     if (!novo.hora || !novo.equipeNome) return;
-    onSalvar({ id: `cap-${Date.now()}`, hora: novo.hora, duracaoMin: novo.duracaoMin, equipeNome: novo.equipeNome });
-    setNovo({ hora: '', duracaoMin: 30, equipeNome: '' });
+    onSalvar({ id: `cap-${Date.now()}`, hora: novo.hora, equipeNome: novo.equipeNome });
+    setNovo({ hora: '', equipeNome: '' });
   }
 
   return (
@@ -2301,15 +2363,14 @@ function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }
           tarefa={c}
           equipes={equipes}
           comDescricao={false}
-          onSalvar={(t) => onSalvar({ id: t.id, hora: t.hora, duracaoMin: t.duracaoMin, equipeNome: t.equipeNome })}
+          onSalvar={(t) => onSalvar({ id: t.id, hora: t.hora, equipeNome: t.equipeNome })}
           onExcluir={() => onExcluir(c.id)}
           cores={cores}
         />
       ))}
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '90px 90px 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8 }}>
           <input type="time" value={novo.hora} onChange={(e) => setNovo({ ...novo, hora: e.target.value })} style={estilos.input} />
-          <input type="number" min={5} value={novo.duracaoMin} onChange={(e) => setNovo({ ...novo, duracaoMin: parseInt(e.target.value, 10) || 5 })} style={estilos.input} />
           <select value={novo.equipeNome} onChange={(e) => setNovo({ ...novo, equipeNome: e.target.value })} style={estilos.input}>
             <option value="">Equipe…</option>
             {equipes.map((eq) => (
@@ -2325,7 +2386,10 @@ function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }
 }
 
 // Linha editável genérica de uma escala com hora própria (Vigília, Almoço,
-// Jantar, Capela Mariana) — hora, duração, equipe e (opcional) descrição.
+// Jantar, Capela Mariana) — hora, equipe e (opcional) descrição. Sem campo de
+// duração: a fonte só tem "a partir de tal horário" — o fim de cada plantão é
+// calculado sozinho (até começar o próximo da mesma escala), ver
+// comFimAteProximoDaMesmaEscala.
 function LinhaEscalaEditavel({ tarefa, equipes, onSalvar, onExcluir, cores, comDescricao = true }) {
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(tarefa);
@@ -2336,16 +2400,14 @@ function LinhaEscalaEditavel({ tarefa, equipes, onSalvar, onExcluir, cores, comD
       <div onClick={() => setAberto(true)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
         <span style={{ opacity: 0.7, width: 48 }}>{tarefa.hora}</span>
         <span style={{ flex: 1 }}>{ehEquipeEncontristas(tarefa.equipeNome) ? `✨ ${tarefa.equipeNome}` : tarefa.equipeNome}</span>
-        <span style={{ fontSize: 12, opacity: 0.6 }}>{tarefa.duracaoMin}min</span>
       </div>
     );
   }
 
   return (
     <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '90px 90px 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8 }}>
         <input type="time" value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} style={estilos.input} />
-        <input type="number" min={5} value={form.duracaoMin} onChange={(e) => setForm({ ...form, duracaoMin: parseInt(e.target.value, 10) || 5 })} style={estilos.input} />
         <select value={form.equipeNome} onChange={(e) => setForm({ ...form, equipeNome: e.target.value })} style={estilos.input}>
           {equipes.map((eq) => (
             <option key={eq.id} value={eq.nome}>{eq.nome}</option>
@@ -2620,7 +2682,7 @@ const estilos = {
     opacity: 0.55,
     letterSpacing: 0.3,
   },
-  telaTituloColuna: { fontFamily: "'Playfair Display', serif", fontSize: 20, margin: 0, textTransform: 'uppercase', letterSpacing: 1 },
+  telaTituloColuna: { fontFamily: "'Playfair Display', serif", fontSize: 25, margin: 0, textTransform: 'uppercase', letterSpacing: 1 },
   hotspotSair: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, zIndex: 10, cursor: 'default' },
   telaoBarraTopo: {
     position: 'absolute',
@@ -2653,6 +2715,9 @@ const estilos = {
   tabBtnAtiva: { opacity: 1, background: 'rgba(212,175,55,0.18)', fontWeight: 600 },
   avisoOffline: { background: '#8B4513', color: 'white', fontSize: 12.5, padding: '8px 16px', textAlign: 'center' },
   seletorDias: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
+  // auto-fit + minmax: 2 colunas quando cabe (computador), 1 coluna quando
+  // não cabe (celular) — sem precisar de media query.
+  gridCronogramas: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '0 32px', alignItems: 'start' },
   chipDia: { padding: '6px 12px', borderRadius: 20, border: `1px solid ${CORES.dourado}66`, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 13 },
   cartaoConfig: { padding: 14, borderRadius: 10, marginBottom: 14 },
   btnPequeno: { padding: '8px 14px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
