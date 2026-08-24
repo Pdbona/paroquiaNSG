@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/paroquiaNSG/ejc-app-cronograma/static/css/main.80286c14.css",
+    "main.js": "/paroquiaNSG/ejc-app-cronograma/static/js/main.c6f1c032.js",
+    "index.html": "/paroquiaNSG/ejc-app-cronograma/index.html",
+    "main.80286c14.css.map": "/paroquiaNSG/ejc-app-cronograma/static/css/main.80286c14.css.map",
+    "main.c6f1c032.js.map": "/paroquiaNSG/ejc-app-cronograma/static/js/main.c6f1c032.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.80286c14.css",
+    "static/js/main.c6f1c032.js"
+  ]
+}
