@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { db } from '../firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+// Import de verdade (não caminho cru) — o webpack processa e copia o arquivo
+// pra build/static/media/ com hash. Um caminho tipo '/src/assets/...' só
+// existe no código-fonte; depois do build essa pasta não é publicada, e a
+// imagem quebra (foi o caso até agora).
+import imagemSantaFoto from '../assets/nossa-senhora-guadalupe.png';
 
-// Caminho da imagem (resolve em tempo de execução) — fundo removido (transparente)
-const imagemSantaUrl = '/src/assets/nossa-senhora-guadalupe.png';
+const imagemSantaUrl = imagemSantaFoto;
 
 // ============================================================================
 // EJC App v2 — Sistema de Gestão e Planejamento de Encontros com Cristo
