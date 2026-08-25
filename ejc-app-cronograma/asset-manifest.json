@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/paroquiaNSG/ejc-app-cronograma/static/css/main.80286c14.css",
-    "main.js": "/paroquiaNSG/ejc-app-cronograma/static/js/main.98442154.js",
+    "main.css": "/paroquiaNSG/ejc-app-cronograma/static/css/main.ce3a4aa5.css",
+    "main.js": "/paroquiaNSG/ejc-app-cronograma/static/js/main.505a7634.js",
     "static/media/nossa-senhora-guadalupe.png": "/paroquiaNSG/ejc-app-cronograma/static/media/nossa-senhora-guadalupe.2f21f750911256fceb53.png",
     "index.html": "/paroquiaNSG/ejc-app-cronograma/index.html",
-    "main.80286c14.css.map": "/paroquiaNSG/ejc-app-cronograma/static/css/main.80286c14.css.map",
-    "main.98442154.js.map": "/paroquiaNSG/ejc-app-cronograma/static/js/main.98442154.js.map"
+    "main.ce3a4aa5.css.map": "/paroquiaNSG/ejc-app-cronograma/static/css/main.ce3a4aa5.css.map",
+    "main.505a7634.js.map": "/paroquiaNSG/ejc-app-cronograma/static/js/main.505a7634.js.map"
   },
   "entrypoints": [
-    "static/css/main.80286c14.css",
-    "static/js/main.98442154.js"
+    "static/css/main.ce3a4aa5.css",
+    "static/js/main.505a7634.js"
   ]
 }
