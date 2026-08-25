@@ -512,16 +512,39 @@ function aplicarEdicaoComCascata(cronograma, id, novoNome, novaDuracao, novaHora
   const nomeAntigo = item.movimento;
   const horaFinal = novaHora || item.hora;
   const delta = horaParaMin(horaFinal) + novaDuracao - (horaParaMin(item.hora) + item.duracaoMin);
+  // "Vem depois" é decidido pela HORA antiga do item editado (não por
+  // ordem) — assim a cascata continua correta mesmo se ordem estiver
+  // temporariamente desalinhada; ordem só desempata quando duas horas
+  // batem em cheio.
+  const vemDepois = (i) => {
+    const diffMin = horaParaMin(i.hora) - horaParaMin(item.hora);
+    return diffMin !== 0 ? diffMin > 0 : i.ordem > item.ordem;
+  };
   const atualizado = cronograma.map((i) => {
     if (i.id === id) {
       return { ...i, movimento: novoNome, duracaoMin: novaDuracao, hora: horaFinal };
     }
-    if (i.dia === item.dia && i.ordem > item.ordem && delta !== 0) {
+    if (i.dia === item.dia && delta !== 0 && vemDepois(i)) {
       return { ...i, hora: minParaHora(horaParaMin(i.hora) + delta) };
     }
     return i;
   });
   return { cronograma: atualizado, delta, nomeAntigo };
+}
+
+// Reatribui "ordem" de um dia a partir da hora atual de cada item — chamado
+// depois de qualquer edição que possa ter mudado a sequência cronológica
+// (editar a hora de um item direto, a cascata reagendando os seguintes, ou
+// incluir um item novo). Sem isso, "ordem" fica um número fixo desde a
+// criação do item, desalinhado da hora depois de qualquer reorganização —
+// era por isso que trocar o horário de dois momentos não mudava a ordem
+// deles na lista, e um item novo sempre caía no fim em vez de entrar no
+// lugar cronologicamente certo. Só itens do mesmo dia entre si importam
+// (comparação de ordem em outros lugares do código já é sempre por dia).
+function reordenarPorHora(cronograma, dia) {
+  const doDia = [...cronograma.filter((i) => i.dia === dia)].sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
+  const outrosDias = cronograma.filter((i) => i.dia !== dia);
+  return [...outrosDias, ...doDia.map((item, idx) => ({ ...item, ordem: idx }))];
 }
 
 function criarAviso(tipo, mensagem, duracaoMs) {
@@ -793,6 +816,7 @@ export default function EJCApp() {
   }
 
   function handleEditarMomento(id, novoNome, novaDuracao) {
+    const item = encontro.cronograma.find((i) => i.id === id);
     const { cronograma, delta, nomeAntigo } = aplicarEdicaoComCascata(encontro.cronograma, id, novoNome, novaDuracao);
     let avisos = encontro.avisos;
     if (delta !== 0) {
@@ -802,7 +826,7 @@ export default function EJCApp() {
           : `Adiantamento no momento "${novoNome || nomeAntigo}" de ${Math.abs(delta)} minuto${Math.abs(delta) > 1 ? 's' : ''}`;
       avisos = [...avisos, criarAviso(1, texto, 20000)];
     }
-    salvar({ ...encontro, cronograma, avisos });
+    salvar({ ...encontro, cronograma: item ? reordenarPorHora(cronograma, item.dia) : cronograma, avisos });
   }
 
   function handleToggleTema() {
@@ -815,11 +839,15 @@ export default function EJCApp() {
     salvar({ ...encontro, config: { ...encontro.config, temaTela: encontro.config.temaTela === 'dark' ? 'light' : 'dark' } });
   }
 
+  // Usado só pra CRIAR um momento novo (Cadastro > Cronograma > "+ Novo
+  // momento") — entra com uma ordem qualquer no fim da lista e
+  // reordenarPorHora recoloca no lugar cronologicamente certo (comparando
+  // pela hora de início que foi digitada), não necessariamente no fim.
   function handleSalvarCronogramaItem(item) {
     const cronograma = encontro.cronograma.some((i) => i.id === item.id)
       ? encontro.cronograma.map((i) => (i.id === item.id ? item : i))
       : [...encontro.cronograma, item];
-    salvar({ ...encontro, cronograma });
+    salvar({ ...encontro, cronograma: reordenarPorHora(cronograma, item.dia) });
   }
 
   // Edição de um momento já existente feita em Cadastro > Cronograma (hora,
@@ -829,10 +857,13 @@ export default function EJCApp() {
   // (era exatamente esse o bug: handleSalvarCronogramaItem sozinho só
   // substitui o item, sem deslocar os seguintes). Diferente da edição ao
   // vivo, não gera aviso de atraso/adiantamento — aqui é ajuste/planejamento
-  // de cronograma, não uma notificação em tempo real pros Servos.
+  // de cronograma, não uma notificação em tempo real pros Servos. Depois da
+  // cascata, reordenarPorHora realinha a ordem de exibição com a hora nova
+  // — é o que faltava pra trocar o horário de dois momentos (ex.: Lanche e
+  // Teatro) e eles realmente trocarem de posição na lista.
   function handleEditarCronogramaItemComCascata(item) {
     const { cronograma } = aplicarEdicaoComCascata(encontro.cronograma, item.id, item.movimento, item.duracaoMin, item.hora);
-    salvar({ ...encontro, cronograma });
+    salvar({ ...encontro, cronograma: reordenarPorHora(cronograma, item.dia) });
   }
 
   function handleExcluirCronogramaItem(id) {
@@ -1176,7 +1207,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
   const [diaSelecionado, setDiaSelecionado] = useState(diaPadrao);
   const diaAtivo = diaSelecionado || diaPadrao;
 
-  const itensDia = encontro.cronograma.filter((i) => i.dia === diaAtivo).sort((a, b) => a.ordem - b.ordem);
+  const itensDia = encontro.cronograma.filter((i) => i.dia === diaAtivo).sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
   const minAgora = horaAtual.dia === diaAtivo ? horaAtual.minutos : -1;
 
   const { atual, proximo, demais } = classificarMomentos(itensDia, minAgora);
@@ -2081,7 +2112,7 @@ function PainelAoVivo(props) {
 
   const diaAtivo = encontro.cronograma.some((i) => i.dia === horaAtual.dia) ? horaAtual.dia : encontro.cronograma[0]?.dia;
   const [diaSelecionado, setDiaSelecionado] = useState(diaAtivo);
-  const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => a.ordem - b.ordem);
+  const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
   const minAgora = horaAtual.dia === diaSelecionado ? horaAtual.minutos : -1;
   const { atual, proximo, demais } = classificarMomentos(itensDia, minAgora);
   // Avisos e o alerta de silêncio/movimento valem pra todo mundo que
@@ -2458,7 +2489,7 @@ function PainelAoVivo(props) {
       {modoImpressao === 'encontrista3dias' && (
         <>
           {Object.keys(DIAS_LABEL).map((dia, i) => {
-            const itensDoDia = encontro.cronograma.filter((it) => it.dia === dia).sort((a, b) => a.ordem - b.ordem);
+            const itensDoDia = encontro.cronograma.filter((it) => it.dia === dia).sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
             return (
               <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
                 <h3>Cronograma — Encontristas</h3>
@@ -2656,7 +2687,7 @@ function ModalEditarMomento({ item, onSalvar, onFechar }) {
 // ============================================================================
 function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onEditarCronogramaItemComCascata, onExcluirCronogramaItem, onSalvarPessoa, onExcluirPessoa, cores }) {
   const [diaSelecionado, setDiaSelecionado] = useState(Object.keys(DIAS_LABEL)[0]);
-  const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => a.ordem - b.ordem);
+  const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
   const [novo, setNovo] = useState({ hora: '', duracaoMin: 15, movimento: '' });
 
   function adicionar() {
@@ -2736,7 +2767,7 @@ function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onEditarCro
                 </tr>
               </thead>
               <tbody>
-                {encontro.cronograma.filter((i) => i.dia === dia).sort((a, b) => a.ordem - b.ordem).map((i) => {
+                {encontro.cronograma.filter((i) => i.dia === dia).sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora)).map((i) => {
                   const tarefasDoItem = encontro.tarefasEquipe.filter((t) => t.cronogramaItemId === i.id);
                   return (
                     <tr key={i.id}>
