@@ -36,6 +36,7 @@ const CORES = {
   dourado: '#D4AF37',
   terracota: '#8B4513',
   marfim: '#FFFFF0',
+  vermelhoSangue: '#7A0C0C',
 };
 
 const DIAS_LABEL = {
@@ -200,6 +201,7 @@ function construirEquipesSemente() {
     observacoes: '',
     membrosIds: [],
     coordenadoresIds: [],
+    senha: '',
   }));
 }
 
@@ -431,15 +433,20 @@ const FUNCOES_DIRIGENTE = ['Ficha', 'Montagem', 'Finanças', 'Pós Encontro', 'P
 // ---------------------------------------------------------------------------
 // CONFIG_PADRAO — senhas de demonstração. TROCAR antes do evento real
 // (Dirigente > Cadastro Geral > Usuários > Senha de Acesso).
-// Servo, Tela, Coordenador de Equipe e Dirigente usam senha única
-// compartilhada pela função inteira. Só o Coordenador Geral usa senha
-// individual por pessoa — precisa identificar quem emitiu um aviso.
+// Servo, Tela e Dirigente usam senha única compartilhada pela função inteira.
+// Coordenador de Equipe NÃO tem senha geral — cada equipe tem a sua própria
+// senha (compartilhada só entre os coordenadores daquela equipe), cadastrada
+// em Cadastro > Coordenadores de Equipe (campo "senha" de cada equipe). Só o
+// Coordenador Geral usa senha individual por pessoa — precisa identificar
+// quem emitiu um aviso.
 // ---------------------------------------------------------------------------
 const CONFIG_PADRAO = {
   tema: 'dark',
+  // Tema exclusivo da Tela (telão) — separado de "tema" (celular: Servo,
+  // Coordenadores, Dirigente) pra alternar um não mudar o outro.
+  temaTela: 'dark',
   senhaServo: 'servo',
   senhaTela: 'tela',
-  senhaCoordenadorEquipe: 'coordequipe',
   senhaDirigente: 'dirigente',
   coordenadoresGerais: [
     { servoId: null, nome: 'Coordenador Geral 1', senha: 'geral1' },
@@ -516,15 +523,17 @@ function criarAviso(tipo, mensagem, duracaoMs) {
 }
 
 // Determina o papel de acesso a partir da senha digitada, checando na ordem:
-// Servo (compartilhada) → Tela (compartilhada) → Coordenador de Equipe
-// (compartilhada) → Dirigente (compartilhada) → Coordenador Geral
-// (individual, só esse identifica quem logou). Retorna null se não bater
-// com nada.
-function resolverAcessoPorSenha(senha, config) {
+// Servo (compartilhada) → Tela (compartilhada) → Coordenador de Equipe (a
+// senha é da EQUIPE, não da função — cada equipe tem a sua própria, então a
+// senha já identifica automaticamente qual equipe a pessoa coordena) →
+// Dirigente (compartilhada) → Coordenador Geral (individual, só esse
+// identifica quem logou). Retorna null se não bater com nada.
+function resolverAcessoPorSenha(senha, config, equipes) {
   if (!senha) return null;
   if (senha === config.senhaServo) return { perfil: 'servo', nome: null };
   if (senha === config.senhaTela) return { perfil: 'tela', nome: null };
-  if (senha === config.senhaCoordenadorEquipe) return { perfil: 'coordenadorEquipe', nome: null };
+  const equipe = (equipes || []).find((e) => e.senha && e.senha === senha);
+  if (equipe) return { perfil: 'coordenadorEquipe', nome: equipe.nome };
   if (senha === config.senhaDirigente) return { perfil: 'dirigente', nome: null };
   const cg = (config.coordenadoresGerais || []).find((c) => c.senha === senha);
   if (cg) return { perfil: 'coordenadorGeral', nome: cg.nome };
@@ -668,7 +677,7 @@ function agruparTarefasPorHora(tarefas) {
 // ============================================================================
 export default function EJCApp() {
   const [perfil, setPerfil] = useState(null); // 'servo' | 'coordenadorGeral' | 'coordenadorEquipe' | 'dirigente' | 'tela'
-  const [usuarioLogado, setUsuarioLogado] = useState(null); // nome (coordenador/dirigente)
+  const [usuarioLogado, setUsuarioLogado] = useState(null); // nome do Coordenador Geral OU nome da equipe (Coordenador de Equipe)
   const [mostrarInscricao, setMostrarInscricao] = useState(false);
   const [erroLogin, setErroLogin] = useState('');
   const [encontro, setEncontro] = useState(ENCONTRO_PADRAO);
@@ -787,6 +796,12 @@ export default function EJCApp() {
     salvar({ ...encontro, config: { ...encontro.config, tema: encontro.config.tema === 'dark' ? 'light' : 'dark' } });
   }
 
+  // Tema da Tela é independente do tema do celular — ver comentário em
+  // CONFIG_PADRAO.temaTela.
+  function handleToggleTemaTela() {
+    salvar({ ...encontro, config: { ...encontro.config, temaTela: encontro.config.temaTela === 'dark' ? 'light' : 'dark' } });
+  }
+
   function handleSalvarCronogramaItem(item) {
     const cronograma = encontro.cronograma.some((i) => i.id === item.id)
       ? encontro.cronograma.map((i) => (i.id === item.id ? item : i))
@@ -838,7 +853,7 @@ export default function EJCApp() {
   }
 
   function tentarEntrar(senha) {
-    const match = resolverAcessoPorSenha(senha, encontro.config);
+    const match = resolverAcessoPorSenha(senha, encontro.config, encontro.equipes);
     if (match) {
       setErroLogin('');
       setPerfil(match.perfil);
@@ -886,7 +901,7 @@ export default function EJCApp() {
         horaAtual={horaAtual}
         branding={BRANDING_PADRAO}
         onSair={sair}
-        onToggleTema={handleToggleTema}
+        onToggleTemaTela={handleToggleTemaTela}
       />
     );
   }
@@ -922,7 +937,7 @@ function TelaCarregando() {
   return (
     <div style={estilos.telaCarregando}>
       <div style={estilos.marcaDagua} />
-      <p style={{ color: CORES.dourado, fontFamily: "'Playfair Display', serif", fontSize: 29.3 }}>Carregando…</p>
+      <p style={{ color: CORES.dourado, fontFamily: "'Playfair Display', serif", fontSize: 23.7 }}>Carregando…</p>
     </div>
   );
 }
@@ -930,15 +945,26 @@ function TelaCarregando() {
 // ============================================================================
 // Tela: Login unificado — uma senha só, o papel é definido pela senha digitada
 // ============================================================================
-function TelaLogin({ branding, erro, onEntrar, onInscrever }) {
+function TelaLogin({ branding, erro, onEntrar }) {
   const [senha, setSenha] = useState('');
 
   return (
     <div style={estilos.telaSeletor}>
       <div style={estilos.marcaDagua} />
       <div className="ejc-tela-dividida">
-        {/* Esquerda (ou tela cheia no celular): logo compacta só no celular +
-            formulário de acesso + convite pra inscrição. */}
+        {/* Esquerda em telas largas — só a imagem da Santa, maior, sozinha.
+            No celular fica escondida (a logo compacta abaixo cobre o mobile). */}
+        <div className="ejc-painel-marca">
+          <img
+            src={imagemSantaUrl}
+            alt={`Nossa Senhora — ${branding.nomeParoquia}`}
+            className="ejc-painel-marca-img"
+          />
+        </div>
+
+        {/* Direita (ou tela cheia no celular): logo compacta só no celular,
+            título/subtítulo institucional acima da senha, e o formulário
+            de acesso. */}
         <div className="ejc-login-card" style={estilos.loginForm}>
           <div className="ejc-logo-compact">
             <div style={{ width: 116, height: 133, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -948,11 +974,11 @@ function TelaLogin({ branding, erro, onEntrar, onInscrever }) {
                 style={{ maxWidth: '100%', maxHeight: '100%', filter: 'brightness(1.1) contrast(1.05)' }}
               />
             </div>
-            <h1 style={{ ...estilos.seletorTituloInstitucional, color: CORES.verdeEscuro, fontSize: 40 }}>
-              Sistema de Gestão e Planejamento de Encontros com Cristo
-            </h1>
-            <p style={{ ...estilos.seletorSubtitulo, color: CORES.terracota, opacity: 0.85, marginBottom: 16 }}>Paróquia {branding.nomeParoquia}</p>
           </div>
+          <h1 style={{ ...estilos.seletorTituloInstitucional, color: CORES.verdeEscuro, fontSize: 32.3 }}>
+            Sistema de Gestão e Planejamento de Encontros com Cristo
+          </h1>
+          <p style={{ ...estilos.seletorSubtitulo, color: CORES.terracota, opacity: 0.85, marginBottom: 16 }}>Paróquia {branding.nomeParoquia}</p>
 
           <h2 style={{ color: CORES.verdeEscuro, marginTop: 0 }}>Acesso ao Sistema</h2>
           <label style={estilos.label}>Senha de Acesso</label>
@@ -969,34 +995,9 @@ function TelaLogin({ branding, erro, onEntrar, onInscrever }) {
           <button onClick={() => onEntrar(senha)} style={estilos.btnEntrar}>
             Entrar
           </button>
-          <p style={{ marginTop: 20, marginBottom: 10, fontSize: 21.1, opacity: 0.75, textAlign: 'center', color: '#555' }}>
-            Ainda não é participante cadastrado?
-          </p>
-          <button onClick={onInscrever} style={estilos.btnInscricao}>
-            🙋 Inscreva-se para o {branding.nomeEvento} →
-          </button>
-        </div>
-
-        {/* Direita: só aparece em telas largas — a imagem grande da Santa
-            substitui a logo compacta do celular (ver @media abaixo). */}
-        <div className="ejc-painel-marca">
-          <img
-            src={imagemSantaUrl}
-            alt={`Nossa Senhora — ${branding.nomeParoquia}`}
-            className="ejc-painel-marca-img"
-          />
-          <p className="ejc-painel-marca-legenda">
-            Sistema de Gestão e Planejamento de Encontros com Cristo
-            <br />
-            Paróquia {branding.nomeParoquia}
-          </p>
         </div>
       </div>
       <style>{`
-        @keyframes pulseGlowInscricao {
-          0%, 100% { box-shadow: 0 4px 18px rgba(212,175,55,0.45); }
-          50% { box-shadow: 0 4px 30px rgba(212,175,55,0.85); }
-        }
         .ejc-tela-dividida { width: 100%; max-width: 460px; position: relative; z-index: 1; }
         .ejc-painel-marca { display: none; }
         @media (min-width: 860px) {
@@ -1013,26 +1014,16 @@ function TelaLogin({ branding, erro, onEntrar, onInscrever }) {
           .ejc-painel-marca {
             display: flex;
             flex: 0 0 45%;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 22px;
             padding: 32px;
             background: linear-gradient(160deg, ${CORES.verdeEscuro}, #081C13);
           }
           .ejc-painel-marca-img {
-            width: 72%;
-            max-width: 340px;
+            width: 80%;
+            max-width: 380px;
             height: auto;
             filter: brightness(1.1) contrast(1.05) drop-shadow(0 12px 28px rgba(0,0,0,0.45));
-          }
-          .ejc-painel-marca-legenda {
-            color: ${CORES.dourado};
-            font-family: 'Playfair Display', serif;
-            text-align: center;
-            font-size: 22px;
-            line-height: 1.4;
-            margin: 0;
           }
         }
       `}</style>
@@ -1081,7 +1072,7 @@ function TelaInscricaoPublica({ branding, onInscrever, onVoltar }) {
         </div>
         <div style={estilos.loginForm}>
           <h2 style={{ color: CORES.verde, marginTop: 0 }}>Inscrição enviada! ✓</h2>
-          <p style={{ fontSize: 22.8, color: '#444' }}>
+          <p style={{ fontSize: 18.4, color: '#444' }}>
             Obrigado, <strong>{form.nome}</strong>! Sua inscrição para o <strong>{branding.nomeEvento}</strong> foi recebida.
             A equipe organizadora vai avaliar e confirmar sua participação em breve.
           </p>
@@ -1099,7 +1090,7 @@ function TelaInscricaoPublica({ branding, onInscrever, onVoltar }) {
       </div>
       <div style={{ ...estilos.loginForm, maxWidth: 440 }}>
         <h2 style={{ color: CORES.verdeEscuro, marginTop: 0, marginBottom: 2 }}>Inscrição — {branding.nomeEvento}</h2>
-        <p style={{ fontSize: 19.5, opacity: 0.7, marginBottom: 16 }}>Paróquia {branding.nomeParoquia}</p>
+        <p style={{ fontSize: 15.8, opacity: 0.7, marginBottom: 16 }}>Paróquia {branding.nomeParoquia}</p>
 
         <label style={estilos.label}>Nome completo</label>
         <input type="text" value={form.nome} onChange={(e) => campo('nome', e.target.value)} style={estilos.input} />
@@ -1130,8 +1121,11 @@ function TelaInscricaoPublica({ branding, onInscrever, onVoltar }) {
 // ============================================================================
 // Tela: Modo Tela (telão / projetor) — somente leitura, split-screen
 // ============================================================================
-function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
-  const tema = encontro.config.tema;
+function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
+  // Tema próprio da Tela — independente do tema usado no celular (Servo,
+  // Coordenadores, Dirigente). Alternar aqui não deve mudar a tela de mais
+  // ninguém, só o telão.
+  const tema = encontro.config.temaTela;
   const cores = tema === 'dark'
     ? { fundo: `linear-gradient(160deg, ${CORES.verdeEscuro}, #081C13)`, texto: CORES.marfim, painel: 'rgba(255,255,255,0.04)' }
     : { fundo: `linear-gradient(160deg, #F3EFE0, ${CORES.marfim})`, texto: CORES.verdeEscuro, painel: 'rgba(27,94,63,0.05)' };
@@ -1175,14 +1169,14 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
             </button>
           ))}
         </div>
-        <button onClick={onToggleTema} style={estilos.telaoBtnTema} title="Alternar modo claro/escuro">
+        <button onClick={onToggleTemaTela} style={estilos.telaoBtnTema} title="Alternar modo claro/escuro (só nesta tela)">
           {tema === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
         </button>
       </div>
 
       <div style={{ ...estilos.telaMetade, paddingTop: 70 }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Encontristas</h2>
-        <p style={{ opacity: 0.7, marginTop: -6, fontSize: 27.6 }}>{DIAS_LABEL[diaAtivo]}</p>
+        <p style={{ opacity: 0.7, marginTop: -6, fontSize: 22.3 }}>{DIAS_LABEL[diaAtivo]}</p>
         {atual && <MomentoDestaque item={atual} tamanho="grande" cores={cores} />}
         {proximo && <MomentoDestaque item={proximo} tamanho="medio" cores={cores} rotulo="Próximo" />}
         <div style={{ marginTop: 16, opacity: 0.75 }}>
@@ -1193,10 +1187,10 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
       </div>
       <div style={{ ...estilos.telaMetade, paddingTop: 70, borderLeft: `2px solid ${CORES.dourado}44` }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Servos</h2>
-        <p style={{ opacity: 0.7, marginTop: -6, fontSize: 27.6 }}>{DIAS_LABEL[diaAtivo]}</p>
+        <p style={{ opacity: 0.7, marginTop: -6, fontSize: 22.3 }}>{DIAS_LABEL[diaAtivo]}</p>
         <div style={{ overflowY: 'auto', maxHeight: '72vh' }}>
           {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
-            <p style={{ opacity: 0.5, fontSize: 22.8 }}>Nenhuma tarefa de equipe cadastrada pra este momento.</p>
+            <p style={{ opacity: 0.5, fontSize: 18.4 }}>Nenhuma tarefa de equipe cadastrada pra este momento.</p>
           )}
           {tarefasAtuais.length > 0 && (
             <FaixaHorarioEquipes rotulo="Agora" itens={tarefasAtuais} destaque cores={cores} grande />
@@ -1207,7 +1201,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
         </div>
       </div>
 
-      {(avisoMovimento || momentoEncontristasAtivo || avisosVisiveis.length > 0) && (
+      {(avisoMovimento || momentoEncontristasAtivo || avisosVisiveis.some((a) => a.tipo !== 3)) && (
         <div style={estilos.bannerContainer}>
           {avisoMovimento && (
             <div style={{ ...estilos.banner, background: CORES.terracota }}>
@@ -1219,13 +1213,19 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
               ✨ Momento dos Encontristas na Capela Mariana — atenção especial
             </div>
           )}
-          {avisosVisiveis.map((a) => (
-            <div key={a.id} style={{ ...estilos.banner, background: a.tipo === 3 ? CORES.dourado : CORES.verde, color: a.tipo === 3 ? CORES.verdeEscuro : '#fff' }}>
+          {avisosVisiveis.filter((a) => a.tipo !== 3).map((a) => (
+            <div key={a.id} style={{ ...estilos.banner, background: CORES.verde, color: '#fff' }}>
               {a.mensagem}
             </div>
           ))}
         </div>
       )}
+
+      {/* Aviso manual do Coordenador Geral — centralizado na tela, maior e
+          em vermelho sangue translúcido, separado da pilha de banners. */}
+      {avisosVisiveis.filter((a) => a.tipo === 3).map((a) => (
+        <div key={a.id} style={estilos.avisoManual}>{a.mensagem}</div>
+      ))}
     </div>
   );
 }
@@ -1265,7 +1265,7 @@ function detectarAvisoMovimentoAtivo(itensDia, minAgora) {
 // Tamanhos do Telão são bem maiores que qualquer outra tela do app — é
 // projetor, visto de longe, não celular na mão.
 function MomentoDestaque({ item, tamanho, rotulo }) {
-  const tamanhos = { grande: 84, medio: 55 };
+  const tamanhos = { grande: 67.8, medio: 44.4 };
   const movimentacao = ehMomentoMovimentacao(item.movimento);
   return (
     <div
@@ -1276,9 +1276,9 @@ function MomentoDestaque({ item, tamanho, rotulo }) {
         background: movimentacao ? `${CORES.terracota}22` : 'transparent',
       }}
     >
-      {rotulo && <div style={{ fontSize: 26, letterSpacing: 1, opacity: 0.6, textTransform: 'uppercase' }}>{rotulo}</div>}
+      {rotulo && <div style={{ fontSize: 21, letterSpacing: 1, opacity: 0.6, textTransform: 'uppercase' }}>{rotulo}</div>}
       <div style={{ fontSize: tamanhos[tamanho], fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{item.hora}</div>
-      <div style={{ fontSize: tamanho === 'grande' ? 46 : 36 }}>{item.movimento}</div>
+      <div style={{ fontSize: tamanho === 'grande' ? 37.2 : 29.1 }}>{item.movimento}</div>
     </div>
   );
 }
@@ -1298,8 +1298,8 @@ function LinhaMomentoPequena({ item }) {
       {/* minWidth (não width) + flexShrink:0 — sem isso o flex espreme a
           caixa da hora abaixo da largura do texto em fontes grandes, e o
           número acaba vazando pro espaço do gap, "colando" no movimento. */}
-      <span style={{ opacity: 0.6, minWidth: 92, flexShrink: 0, fontSize: 30.9 }}>{item.hora}</span>
-      <span style={{ fontSize: 30.9 }}>{item.movimento}</span>
+      <span style={{ opacity: 0.6, minWidth: 92, flexShrink: 0, fontSize: 25 }}>{item.hora}</span>
+      <span style={{ fontSize: 25 }}>{item.movimento}</span>
     </div>
   );
 }
@@ -1322,7 +1322,7 @@ function ListaComVerMais({ itens, max = 5, renderItem, corBtn }) {
       {restantes > 0 && (
         <button
           onClick={() => setExpandido(true)}
-          style={{ background: 'none', border: 'none', color: corBtn || CORES.verde, cursor: 'pointer', fontSize: 21, padding: '6px 0', textAlign: 'left' }}
+          style={{ background: 'none', border: 'none', color: corBtn || CORES.verde, cursor: 'pointer', fontSize: 17, padding: '6px 0', textAlign: 'left' }}
         >
           Ver mais {restantes} →
         </button>
@@ -1341,7 +1341,7 @@ function FaixaHorarioEquipes({ rotulo, itens, destaque, cores, grande }) {
         style={{
           fontWeight: 700,
           fontFamily: destaque ? "'Playfair Display', serif" : 'inherit',
-          fontSize: grande ? (destaque ? 30 : 22) : destaque ? 20 : 16,
+          fontSize: grande ? (destaque ? 24.2 : 17.8) : destaque ? 16.2 : 12.9,
           opacity: destaque ? 1 : 0.65,
           marginBottom: 4,
           color: destaque ? CORES.dourado : 'inherit',
@@ -1372,7 +1372,7 @@ function CaixaTarefaEquipe({ tarefa, destaque, cores, grande }) {
         borderRadius: 8,
         borderLeft: `3px solid ${corSelo ? `${corSelo}${destaque || especial ? '' : '77'}` : 'transparent'}`,
         background: especial ? `${CORES.dourado}30` : destaque ? `${CORES.dourado}18` : cores.cartao,
-        fontSize: grande ? (destaque ? 24 : 19) : destaque ? 20 : 16,
+        fontSize: grande ? (destaque ? 19.4 : 15.3) : destaque ? 16.2 : 12.9,
         opacity: destaque || especial ? 1 : 0.78,
       }}
     >
@@ -1435,7 +1435,7 @@ function ModoCelular(props) {
 
   const rotuloPerfil =
     perfil === 'coordenadorGeral' ? `Coordenador Geral — ${usuarioLogado}` :
-    perfil === 'coordenadorEquipe' ? 'Coordenador de Equipe' :
+    perfil === 'coordenadorEquipe' ? `Coordenador de Equipe — ${usuarioLogado}` :
     perfil === 'dirigente' ? 'Dirigente' :
     'Servo';
 
@@ -1461,8 +1461,8 @@ function ModoCelular(props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src={imagemSantaUrl} alt="" style={estilos.logoCantoImg} />
           <div>
-            <div style={{ fontSize: 19.5, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>{rotuloPerfil}</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: CORES.dourado, lineHeight: 1.2 }}>{branding.nomeParoquia}</div>
+            <div style={{ fontSize: 15.8, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>{rotuloPerfil}</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, color: CORES.dourado, lineHeight: 1.2 }}>{branding.nomeParoquia}</div>
           </div>
         </div>
         <button onClick={onSair} style={estilos.btnSairHeader}>Sair</button>
@@ -1471,12 +1471,12 @@ function ModoCelular(props) {
 
       {isDirigente && (
         <div className="ejc-barra-topo" style={estilos.tabNav}>
-          <button className="ejc-btn-hamburguer" onClick={() => setMenuAberto((m) => !m)} style={{ ...estilos.tabBtn, fontSize: 22.8, fontWeight: 700 }}>
+          <button className="ejc-btn-hamburguer" onClick={() => setMenuAberto((m) => !m)} style={{ ...estilos.tabBtn, fontSize: 18.4, fontWeight: 700 }}>
             ☰ {abaTopo === 'cadastro' ? tituloSecaoAtiva : 'Cadastro Geral'}
           </button>
           <button
             onClick={() => { setAbaTopo(abaTopo === 'encontro' ? 'cadastro' : 'encontro'); setMenuAberto(false); }}
-            style={{ ...estilos.tabBtn, ...(abaTopo === 'encontro' ? estilos.tabBtnAtiva : {}), fontSize: 22.8, fontWeight: 700, marginLeft: 'auto' }}
+            style={{ ...estilos.tabBtn, ...(abaTopo === 'encontro' ? estilos.tabBtnAtiva : {}), fontSize: 18.4, fontWeight: 700, marginLeft: 'auto' }}
           >
             {abaTopo === 'encontro' ? '← Voltar ao Cadastro' : 'Ver Encontro (Ao Vivo) →'}
           </button>
@@ -1521,9 +1521,16 @@ function ModoCelular(props) {
         )}
 
         <div className="ejc-conteudo-cadastro" style={{ padding: 16, maxWidth: mostrandoAoVivo ? 1200 : 1100, margin: '0 auto', position: 'relative', zIndex: 1, width: '100%' }}>
-          {!isDirigente && <PainelAoVivo {...props} podeEditar={podeEditarAoVivo} cores={cores} />}
+          {!isDirigente && (
+            <PainelAoVivo
+              {...props}
+              podeEditar={podeEditarAoVivo}
+              cores={cores}
+              equipeCoordenada={isCoordenadorEquipe ? usuarioLogado : ''}
+            />
+          )}
 
-          {isDirigente && abaTopo === 'encontro' && <PainelAoVivo {...props} podeEditar={false} cores={cores} />}
+          {isDirigente && abaTopo === 'encontro' && <PainelAoVivo {...props} podeEditar={false} cores={cores} equipeCoordenada="" />}
 
           {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'servos' && (
             <AbaCadastroPessoas
@@ -1564,7 +1571,6 @@ function ModoCelular(props) {
             <AbaAcessosGerais
               senhaServo={encontro.config.senhaServo}
               senhaTela={encontro.config.senhaTela}
-              senhaCoordenadorEquipe={encontro.config.senhaCoordenadorEquipe}
               senhaDirigente={encontro.config.senhaDirigente}
               onSalvarConfig={props.onSalvarConfig}
               cores={cores}
@@ -1671,13 +1677,13 @@ function AbaCoordenadores({ servos, coordenadores, onSalvarConfig, cores }) {
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Coordenadores Gerais deste EJC</h3>
-      <p style={{ fontSize: 19.5, opacity: 0.7 }}>
+      <p style={{ fontSize: 15.8, opacity: 0.7 }}>
         Coordenador Geral não é um cadastro separado — é um Servo escolhido pra coordenar este encontro
         como um todo. Marque quem vai coordenar e defina a senha de acesso individual de cada um (essa
         identificação é o que permite mostrar quem emitiu um aviso no telão).
       </p>
       {servos.length === 0 && (
-        <p style={{ fontSize: 21.1, opacity: 0.6 }}>Cadastre Servos primeiro (aba Servos) pra poder escolher os coordenadores.</p>
+        <p style={{ fontSize: 17, opacity: 0.6 }}>Cadastre Servos primeiro (aba Servos) pra poder escolher os coordenadores.</p>
       )}
       <div style={estilos.gridCartoes}>
         {servos.map((s) => {
@@ -1687,7 +1693,7 @@ function AbaCoordenadores({ servos, coordenadores, onSalvarConfig, cores }) {
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input type="checkbox" checked={!!coord} onChange={() => alternar(s)} />
                 <strong>{s.nome}</strong>
-                {s.equipe && <span style={{ fontSize: 19.5, opacity: 0.6 }}>· {s.equipe}</span>}
+                {s.equipe && <span style={{ fontSize: 15.8, opacity: 0.6 }}>· {s.equipe}</span>}
               </label>
               {coord && (
                 <div style={{ marginTop: 8 }}>
@@ -1707,11 +1713,13 @@ function AbaCoordenadores({ servos, coordenadores, onSalvarConfig, cores }) {
 }
 
 // Coordenadores de Equipe — pra cada equipe já cadastrada (aba Encontro >
-// Equipes), marca quais Servos formam a coordenação dela (normalmente 3-4).
-// Não é um cadastro à parte: reaproveita a mesma coleção "equipes", só
-// grava num campo próprio (coordenadoresIds) — não mexe em membrosIds.
-// Acesso de quem coordena qualquer equipe é uma única senha compartilhada
-// (Senha de Acesso), sem identificação individual.
+// Equipes), marca quais Servos formam a coordenação dela (normalmente 3-4) e
+// define a senha de acesso daquela equipe. Não é um cadastro à parte:
+// reaproveita a mesma coleção "equipes", só grava campos próprios
+// (coordenadoresIds, senha) — não mexe em membrosIds. Cada equipe tem sua
+// própria senha, compartilhada só entre quem coordena aquela equipe — a
+// senha da Cozinha é diferente da senha da Sala, por exemplo. Ao entrar com
+// a senha de uma equipe, o app já sabe qual equipe é (não precisa perguntar).
 function AbaCoordenadoresEquipe({ equipes, servos, onSalvarEquipe, cores }) {
   const [expandidaId, setExpandidaId] = useState(null);
 
@@ -1724,11 +1732,12 @@ function AbaCoordenadoresEquipe({ equipes, servos, onSalvarEquipe, cores }) {
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Coordenadores de Equipe</h3>
-      <p style={{ fontSize: 19.5, opacity: 0.7 }}>
-        Marque quem coordena cada equipe (normalmente 3-4 Servos). Todo mundo que coordena qualquer equipe
-        entra com a mesma senha, compartilhada (aba Senha de Acesso) — não precisa identificar qual pessoa.
+      <p style={{ fontSize: 15.8, opacity: 0.7 }}>
+        Marque quem coordena cada equipe (normalmente 3-4 Servos) e defina a senha de acesso dela. Todo
+        mundo que coordena aquela equipe entra com a mesma senha — mas equipes diferentes têm senhas
+        diferentes. Ao logar, o coordenador já vê o cronograma do Encontrista e, ao lado, só a própria equipe.
       </p>
-      {equipes.length === 0 && <p style={{ fontSize: 21.1, opacity: 0.6 }}>Cadastre Equipes primeiro (aba Encontro → Equipes).</p>}
+      {equipes.length === 0 && <p style={{ fontSize: 17, opacity: 0.6 }}>Cadastre Equipes primeiro (aba Encontro → Equipes).</p>}
       <div style={estilos.gridCartoes}>
         {equipes.map((eq) => {
           const coordenadoresIds = eq.coordenadoresIds || [];
@@ -1743,18 +1752,28 @@ function AbaCoordenadoresEquipe({ equipes, servos, onSalvarEquipe, cores }) {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
                 <strong>{eq.nome}</strong>
-                <span style={{ fontSize: 19.5, opacity: 0.6 }}>{coordenadoresIds.length} coordenador(es)</span>
+                <span style={{ fontSize: 15.8, opacity: 0.6 }}>{coordenadoresIds.length} coordenador(es)</span>
               </div>
               {aberta && (
-                <div style={{ ...estilos.listaMembrosSugeridos, marginTop: 10 }}>
-                  {servos.length === 0 && <p style={{ fontSize: 19.5, opacity: 0.6, margin: 0 }}>Cadastre Servos primeiro (aba Servos).</p>}
-                  {servos.map((s) => (
-                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 21.1, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={coordenadoresIds.includes(s.id)} onChange={() => alternarCoordenador(eq, s.id)} />
-                      <span style={{ flex: 1 }}>{s.nome}</span>
-                    </label>
-                  ))}
-                </div>
+                <>
+                  <label style={{ ...estilos.label, marginTop: 12 }}>Senha de acesso da equipe {eq.nome}</label>
+                  <input
+                    type="text"
+                    value={eq.senha || ''}
+                    onChange={(e) => onSalvarEquipe({ ...eq, senha: e.target.value })}
+                    style={estilos.input}
+                    placeholder="Ex: cozinha2026"
+                  />
+                  <div style={{ ...estilos.listaMembrosSugeridos, marginTop: 10 }}>
+                    {servos.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6, margin: 0 }}>Cadastre Servos primeiro (aba Servos).</p>}
+                    {servos.map((s) => (
+                      <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 17, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={coordenadoresIds.includes(s.id)} onChange={() => alternarCoordenador(eq, s.id)} />
+                        <span style={{ flex: 1 }}>{s.nome}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           );
@@ -1784,7 +1803,7 @@ function AbaDirigentes({ servos, dirigentesPorFuncao, onSalvarConfig, cores }) {
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Dirigentes (G5)</h3>
-      <p style={{ fontSize: 19.5, opacity: 0.7 }}>
+      <p style={{ fontSize: 15.8, opacity: 0.7 }}>
         Vincule 3-4 Servos a cada função. Todos os dirigentes entram com a mesma senha compartilhada (aba
         Senha de Acesso), com acesso completo ao Cadastro Geral — não há identificação individual.
       </p>
@@ -1802,13 +1821,13 @@ function AbaDirigentes({ servos, dirigentesPorFuncao, onSalvarConfig, cores }) {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
                 <strong>{funcao}</strong>
-                <span style={{ fontSize: 19.5, opacity: 0.6 }}>{servoIds.length} pessoa(s)</span>
+                <span style={{ fontSize: 15.8, opacity: 0.6 }}>{servoIds.length} pessoa(s)</span>
               </div>
               {aberta && (
                 <div style={{ ...estilos.listaMembrosSugeridos, marginTop: 10 }}>
-                  {servos.length === 0 && <p style={{ fontSize: 19.5, opacity: 0.6, margin: 0 }}>Cadastre Servos primeiro (aba Servos).</p>}
+                  {servos.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6, margin: 0 }}>Cadastre Servos primeiro (aba Servos).</p>}
                   {servos.map((s) => (
-                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 21.1, cursor: 'pointer' }}>
+                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 17, cursor: 'pointer' }}>
                       <input type="checkbox" checked={servoIds.includes(s.id)} onChange={() => alternarServo(funcao, s.id)} />
                       <span style={{ flex: 1 }}>{s.nome}</span>
                     </label>
@@ -1823,35 +1842,32 @@ function AbaDirigentes({ servos, dirigentesPorFuncao, onSalvarConfig, cores }) {
   );
 }
 
-function AbaAcessosGerais({ senhaServo, senhaTela, senhaCoordenadorEquipe, senhaDirigente, onSalvarConfig, cores }) {
+function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, onSalvarConfig, cores }) {
   const [sServo, setSServo] = useState(senhaServo);
   const [sTela, setSTela] = useState(senhaTela);
-  const [sCoordEquipe, setSCoordEquipe] = useState(senhaCoordenadorEquipe);
   const [sDirigente, setSDirigente] = useState(senhaDirigente);
   useEffect(() => setSServo(senhaServo), [senhaServo]);
   useEffect(() => setSTela(senhaTela), [senhaTela]);
-  useEffect(() => setSCoordEquipe(senhaCoordenadorEquipe), [senhaCoordenadorEquipe]);
   useEffect(() => setSDirigente(senhaDirigente), [senhaDirigente]);
 
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Senha de Acesso</h3>
-      <p style={{ fontSize: 19.5, opacity: 0.7 }}>
+      <p style={{ fontSize: 15.8, opacity: 0.7 }}>
         Senhas compartilhadas — não pertencem a uma pessoa específica. (Coordenadores Gerais têm senha
-        individual própria, cadastrada na aba Coordenadores Gerais.)
+        individual própria, cadastrada na aba Coordenadores Gerais; a senha de cada Coordenador de Equipe é
+        por equipe — Cozinha, Sala etc. — cadastrada na aba Coordenadores de Equipe.)
       </p>
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
         <label style={estilos.label}>Senha do Servo (compartilhada entre todos os servos)</label>
         <input type="text" value={sServo} onChange={(e) => setSServo(e.target.value)} style={estilos.input} />
-        <label style={estilos.label}>Senha do Coordenador de Equipe (compartilhada entre todos)</label>
-        <input type="text" value={sCoordEquipe} onChange={(e) => setSCoordEquipe(e.target.value)} style={estilos.input} />
         <label style={estilos.label}>Senha do Dirigente (compartilhada entre todos, acesso completo ao Cadastro Geral)</label>
         <input type="text" value={sDirigente} onChange={(e) => setSDirigente(e.target.value)} style={estilos.input} />
         <label style={estilos.label}>Senha da Tela / Telão (um dispositivo, não uma pessoa)</label>
         <input type="text" value={sTela} onChange={(e) => setSTela(e.target.value)} style={estilos.input} />
       </div>
       <button
-        onClick={() => onSalvarConfig({ senhaServo: sServo, senhaTela: sTela, senhaCoordenadorEquipe: sCoordEquipe, senhaDirigente: sDirigente })}
+        onClick={() => onSalvarConfig({ senhaServo: sServo, senhaTela: sTela, senhaDirigente: sDirigente })}
         style={estilos.btnEntrar}
       >
         Salvar Senhas
@@ -1882,48 +1898,41 @@ function MarcaDaguaImagem({ opacidade = 0.12 }) {
   );
 }
 
-// Chave local (por aparelho) que lembra qual equipe o Coordenador de Equipe
-// escolheu coordenar — a senha é compartilhada/anônima, então não dá pra
-// saber isso pelo login; perguntamos uma vez e guardamos no aparelho.
-const CHAVE_EQUIPE_COORDENADA = 'ejc_equipeCoordenador';
-
 function PainelAoVivo(props) {
-  const { perfil, encontro, horaAtual, cores, podeEditar } = props;
-  const mostrarPainelServos =
-    perfil === 'servo' || perfil === 'coordenadorGeral' || perfil === 'coordenadorEquipe' || perfil === 'dirigente';
+  const { perfil, encontro, horaAtual, cores, podeEditar, branding, equipeCoordenada } = props;
   const isCoordenadorEquipe = perfil === 'coordenadorEquipe';
-
-  const [equipeCoordenada, setEquipeCoordenada] = useState(() => {
-    try { return localStorage.getItem(CHAVE_EQUIPE_COORDENADA) || ''; } catch { return ''; }
-  });
-  function escolherEquipeCoordenada(nome) {
-    try { localStorage.setItem(CHAVE_EQUIPE_COORDENADA, nome); } catch {}
-    setEquipeCoordenada(nome);
-  }
-  function trocarEquipeCoordenada() {
-    try { localStorage.removeItem(CHAVE_EQUIPE_COORDENADA); } catch {}
-    setEquipeCoordenada('');
-  }
+  // Simular data/hora e Enviar aviso manual são só do Coordenador Geral —
+  // o Coordenador de Equipe não tem essas ferramentas, só edita a cascata
+  // de momentos e alterna o próprio tema.
+  const isCoordenadorGeral = perfil === 'coordenadorGeral';
+  // Painel de equipe (coluna "Servos") não aparece pro Servo — ele entra e
+  // vê só o cronograma do Encontrista. Coordenador de Equipe já sabe qual
+  // equipe é a sua desde o login (a senha é da equipe); Coordenador Geral e
+  // Dirigente veem todas as equipes.
+  const mostrarPainelEquipe = perfil === 'coordenadorGeral' || perfil === 'coordenadorEquipe' || perfil === 'dirigente';
 
   const diaAtivo = encontro.cronograma.some((i) => i.dia === horaAtual.dia) ? horaAtual.dia : encontro.cronograma[0]?.dia;
   const [diaSelecionado, setDiaSelecionado] = useState(diaAtivo);
   const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => a.ordem - b.ordem);
   const minAgora = horaAtual.dia === diaSelecionado ? horaAtual.minutos : -1;
   const { atual, proximo, demais } = classificarMomentos(itensDia, minAgora);
-  const avisosVisiveis = mostrarPainelServos ? encontro.avisos.filter((a) => a.expiraEm > Date.now()) : [];
-  const avisoMovimento = mostrarPainelServos ? detectarAvisoMovimentoAtivo(itensDia, minAgora) : null;
+  // Avisos e o alerta de silêncio/movimento valem pra todo mundo que
+  // acompanha o Encontro ao vivo, inclusive o Servo — não só quem vê a
+  // coluna de equipes.
+  const avisosVisiveis = encontro.avisos.filter((a) => a.expiraEm > Date.now());
+  const avisoMovimento = detectarAvisoMovimentoAtivo(itensDia, minAgora);
 
   const tarefasDia = useMemo(
     () => tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaSelecionado),
     [encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaSelecionado]
   );
-  // Coordenador de Equipe só vê a própria equipe — os demais perfis (Servo,
-  // Coordenador Geral, Dirigente) veem todas.
+  // Coordenador de Equipe só vê a própria equipe — os demais perfis
+  // (Coordenador Geral, Dirigente) veem todas.
   const tarefasDiaVisivel =
     isCoordenadorEquipe && equipeCoordenada ? tarefasDia.filter((t) => t.equipeNome === equipeCoordenada) : tarefasDia;
   const { atuais: tarefasAtuais, proximas: tarefasProximas } = classificarTarefasEquipe(tarefasDiaVisivel, minAgora);
   const gruposProximas = useMemo(() => agruparTarefasPorHora(tarefasProximas), [tarefasProximas]);
-  const momentoEncontristasAtivo = mostrarPainelServos && tarefasAtuais.find((t) => ehEquipeEncontristas(t.equipeNome));
+  const momentoEncontristasAtivo = tarefasAtuais.find((t) => ehEquipeEncontristas(t.equipeNome));
 
   const [editando, setEditando] = useState(null);
   const [textoAviso, setTextoAviso] = useState('');
@@ -1931,16 +1940,20 @@ function PainelAoVivo(props) {
 
   return (
     <div>
-      <div style={estilos.seletorDias}>
-        {Object.keys(DIAS_LABEL).map((d) => (
-          <button
-            key={d}
-            onClick={() => setDiaSelecionado(d)}
-            style={{ ...estilos.chipDia, ...(d === diaSelecionado ? { background: CORES.dourado, color: CORES.verdeEscuro } : {}) }}
-          >
-            {DIAS_LABEL[d]}
-          </button>
-        ))}
+    <div className="no-print">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={estilos.seletorDias}>
+          {Object.keys(DIAS_LABEL).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDiaSelecionado(d)}
+              style={{ ...estilos.chipDia, ...(d === diaSelecionado ? { background: CORES.dourado, color: CORES.verdeEscuro } : {}) }}
+            >
+              {DIAS_LABEL[d]}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => window.print()} style={estilos.btnPequeno}>🖨️ Imprimir</button>
       </div>
 
       {avisoMovimento && (
@@ -1953,15 +1966,15 @@ function PainelAoVivo(props) {
           ✨ Momento dos Encontristas na Capela Mariana — atenção especial
         </div>
       )}
-      {avisosVisiveis.map((a) => (
-        <div key={a.id} style={{ ...estilos.bannerInline, background: a.tipo === 3 ? CORES.dourado : CORES.verde, color: a.tipo === 3 ? CORES.verdeEscuro : '#fff' }}>
+      {avisosVisiveis.filter((a) => a.tipo !== 3).map((a) => (
+        <div key={a.id} style={{ ...estilos.bannerInline, background: CORES.verde, color: '#fff' }}>
           {a.mensagem}
         </div>
       ))}
 
-      {podeEditar && (
+      {podeEditar && isCoordenadorGeral && (
         <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <label style={{ fontSize: 19.5, opacity: 0.7 }}>Simular data/hora (para testes antes do evento)</label>
+          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Simular data/hora (para testes antes do evento)</label>
           <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
             <input type="datetime-local" value={simInput} onChange={(e) => setSimInput(e.target.value)} style={{ ...estilos.input, marginBottom: 0, flex: 1 }} />
             <button onClick={() => props.onSetHoraSimulada(simInput)} style={estilos.btnPequeno}>Aplicar</button>
@@ -1970,9 +1983,9 @@ function PainelAoVivo(props) {
         </div>
       )}
 
-      {podeEditar && (
+      {podeEditar && isCoordenadorGeral && (
         <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <label style={{ fontSize: 19.5, opacity: 0.7 }}>Enviar aviso manual (aparece por 20s p/ Servos + Coordenadores + Telão)</label>
+          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Enviar aviso manual (aparece por 20s p/ Servos + Coordenadores + Telão)</label>
           <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
             <input
               type="text"
@@ -1993,11 +2006,22 @@ function PainelAoVivo(props) {
               Enviar
             </button>
           </div>
-          <button onClick={props.onToggleTema} style={{ ...estilos.btnLink, marginTop: 10 }}>
+        </div>
+      )}
+
+      {podeEditar && (
+        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
+          <button onClick={props.onToggleTema} style={{ ...estilos.btnLink, marginTop: 0 }}>
             Alternar tema ({encontro.config.tema === 'dark' ? 'ativar claro' : 'ativar escuro'})
           </button>
         </div>
       )}
+
+      {/* Aviso manual do Coordenador Geral — centralizado na tela, maior e
+          em vermelho sangue translúcido, separado dos demais avisos. */}
+      {avisosVisiveis.filter((a) => a.tipo === 3).map((a) => (
+        <div key={a.id} style={estilos.avisoManual}>{a.mensagem}</div>
+      ))}
 
       {/* Lado a lado quando há espaço (computador), empilhado no celular —
           puro CSS grid, sem depender de media query nem JS de largura. */}
@@ -2021,65 +2045,40 @@ function PainelAoVivo(props) {
           </div>
         </div>
 
-        {mostrarPainelServos && (
+        {mostrarPainelEquipe && (
           <div>
-            <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Servos</h3>
+            <h3 style={{ marginTop: 20, marginBottom: 8 }}>
+              {isCoordenadorEquipe ? `Cronograma — Equipe ${equipeCoordenada}` : 'Cronograma — Servos'}
+            </h3>
 
-            {isCoordenadorEquipe && !equipeCoordenada && (
-              <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-                <label style={{ ...estilos.label, marginTop: 0 }}>Qual equipe você coordena?</label>
-                <select
-                  defaultValue=""
-                  onChange={(e) => e.target.value && escolherEquipeCoordenada(e.target.value)}
-                  style={estilos.input}
-                >
-                  <option value="">Selecione…</option>
-                  {encontro.equipes.map((eq) => (
-                    <option key={eq.id} value={eq.nome}>{eq.nome}</option>
-                  ))}
-                </select>
-                <p style={{ fontSize: 16.3, opacity: 0.6, margin: 0 }}>Escolha uma vez só — fica salvo neste aparelho.</p>
+            {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
+              <p style={{ fontSize: 17, opacity: 0.6 }}>Nenhuma tarefa cadastrada pra este dia ainda.</p>
+            )}
+            {isCoordenadorEquipe ? (
+              // Uma equipe só — lista cronológica simples, sem agrupar em caixas.
+              <div>
+                {tarefasAtuais.map((t) => (
+                  <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
+                ))}
+                <ListaComVerMais
+                  itens={tarefasProximas}
+                  max={5}
+                  renderItem={(t) => <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />}
+                />
               </div>
-            )}
-
-            {isCoordenadorEquipe && equipeCoordenada && (
-              <button onClick={trocarEquipeCoordenada} style={{ ...estilos.btnLink, textAlign: 'left', marginBottom: 8 }}>
-                Coordenando: <strong>{equipeCoordenada}</strong> · trocar
-              </button>
-            )}
-
-            {(!isCoordenadorEquipe || equipeCoordenada) && (
-              <>
-                {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
-                  <p style={{ fontSize: 21.1, opacity: 0.6 }}>Nenhuma tarefa cadastrada pra este dia ainda.</p>
-                )}
-                {isCoordenadorEquipe ? (
-                  // Uma equipe só — lista cronológica simples, sem agrupar em caixas.
-                  <div>
-                    {tarefasAtuais.map((t) => (
-                      <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
-                    ))}
-                    <ListaComVerMais
-                      itens={tarefasProximas}
-                      max={5}
-                      renderItem={(t) => <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />}
-                    />
-                  </div>
-                ) : (
-                  // Todas as equipes — agrupadas por horário, cada horário com
-                  // suas equipes lado a lado (rolagem horizontal própria).
-                  <div>
-                    {tarefasAtuais.length > 0 && <FaixaHorarioEquipes rotulo="Agora" itens={tarefasAtuais} destaque cores={cores} />}
-                    <ListaComVerMais
-                      itens={gruposProximas}
-                      max={5}
-                      renderItem={(g, i) => (
-                        <FaixaHorarioEquipes key={g.hora} rotulo={g.hora} itens={g.itens} destaque={i === 0 && tarefasAtuais.length === 0} cores={cores} />
-                      )}
-                    />
-                  </div>
-                )}
-              </>
+            ) : (
+              // Todas as equipes — agrupadas por horário, cada horário com
+              // suas equipes lado a lado (rolagem horizontal própria).
+              <div>
+                {tarefasAtuais.length > 0 && <FaixaHorarioEquipes rotulo="Agora" itens={tarefasAtuais} destaque cores={cores} />}
+                <ListaComVerMais
+                  itens={gruposProximas}
+                  max={5}
+                  renderItem={(g, i) => (
+                    <FaixaHorarioEquipes key={g.hora} rotulo={g.hora} itens={g.itens} destaque={i === 0 && tarefasAtuais.length === 0} cores={cores} />
+                  )}
+                />
+              </div>
             )}
           </div>
         )}
@@ -2095,6 +2094,57 @@ function PainelAoVivo(props) {
           }}
         />
       )}
+    </div>
+
+    {/* Área usada só na impressão (ver .imprimir-area em index.css) — o que
+        este perfil está vendo agora: cronograma do Encontristas do dia
+        selecionado e, se aplicável, a coluna de equipe(s) visível. */}
+    <div className="imprimir-area">
+      <h2 style={{ fontFamily: "'Playfair Display', serif" }}>{branding?.nomeEvento}</h2>
+      <p>Paróquia {branding?.nomeParoquia} — {DIAS_LABEL[diaSelecionado]}</p>
+      <h3>Cronograma — Encontristas</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8, marginBottom: 20 }}>
+        <thead>
+          <tr>
+            <th style={estilos.thImpressao}>Hora</th>
+            <th style={estilos.thImpressao}>Duração</th>
+            <th style={estilos.thImpressao}>Movimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {itensDia.map((i) => (
+            <tr key={i.id}>
+              <td style={estilos.tdImpressao}>{i.hora}</td>
+              <td style={estilos.tdImpressao}>{i.duracaoMin}min</td>
+              <td style={estilos.tdImpressao}>{i.movimento}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {mostrarPainelEquipe && (
+        <>
+          <h3>{isCoordenadorEquipe ? `Equipe ${equipeCoordenada}` : 'Tarefas de Equipe'}</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
+            <thead>
+              <tr>
+                <th style={estilos.thImpressao}>Hora</th>
+                {!isCoordenadorEquipe && <th style={estilos.thImpressao}>Equipe</th>}
+                <th style={estilos.thImpressao}>Tarefa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tarefasDiaVisivel.map((t) => (
+                <tr key={t.id}>
+                  <td style={estilos.tdImpressao}>{t.hora}</td>
+                  {!isCoordenadorEquipe && <td style={estilos.tdImpressao}>{t.equipeNome}</td>}
+                  <td style={estilos.tdImpressao}>{ORIGEM_INFO[t.origem] ? ORIGEM_INFO[t.origem].label : t.tarefa}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
     </div>
   );
 }
@@ -2113,8 +2163,8 @@ function LinhaMomentoCelular({ item, nivel, cores, editavel, onEditar }) {
     : movimentacao
     ? `${CORES.terracota}1c`
     : cores.cartao;
-  const fontHora = nivel === 'atual' ? 34 : nivel === 'proximo' ? 26 : 20;
-  const fontMovimento = nivel === 'atual' ? 24 : nivel === 'proximo' ? 21 : 18;
+  const fontHora = nivel === 'atual' ? 27.5 : nivel === 'proximo' ? 21 : 16.2;
+  const fontMovimento = nivel === 'atual' ? 19.4 : nivel === 'proximo' ? 17 : 14.5;
   return (
     <div
       onClick={editavel ? onEditar : undefined}
@@ -2126,10 +2176,10 @@ function LinhaMomentoCelular({ item, nivel, cores, editavel, onEditar }) {
         cursor: editavel ? 'pointer' : 'default',
       }}
     >
-      {nivel === 'proximo' && <div style={{ fontSize: 15, letterSpacing: 1, opacity: 0.65, textTransform: 'uppercase', marginBottom: 2 }}>Próximo</div>}
+      {nivel === 'proximo' && <div style={{ fontSize: 12.1, letterSpacing: 1, opacity: 0.65, textTransform: 'uppercase', marginBottom: 2 }}>Próximo</div>}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
         <span style={{ fontWeight: 700, fontSize: fontHora, color: destaque ? CORES.dourado : 'inherit' }}>{item.hora}</span>
-        <span style={{ fontSize: nivel ? 15 : 13.5, opacity: 0.6 }}>{item.duracaoMin}min</span>
+        <span style={{ fontSize: nivel ? 12.1 : 10.9, opacity: 0.6 }}>{item.duracaoMin}min</span>
       </div>
       <div style={{ fontSize: fontMovimento, marginTop: 2 }}>{item.movimento}</div>
     </div>
@@ -2154,10 +2204,10 @@ function LinhaTarefaEquipeCelular({ tarefa, destaque, cores }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: destaque ? 24 : 19, color: destaque ? CORES.dourado : 'inherit' }}>{tarefa.hora}</span>
-        <strong style={{ fontSize: 19.5 }}>{especial ? '✨ ' : info ? `${info.icone} ` : ''}{tarefa.equipeNome}</strong>
+        <span style={{ fontWeight: 700, fontSize: destaque ? 19.4 : 15.3, color: destaque ? CORES.dourado : 'inherit' }}>{tarefa.hora}</span>
+        <strong style={{ fontSize: 15.8 }}>{especial ? '✨ ' : info ? `${info.icone} ` : ''}{tarefa.equipeNome}</strong>
       </div>
-      <div style={{ fontSize: 18, marginTop: 2 }}>{info ? info.label : tarefa.tarefa}</div>
+      <div style={{ fontSize: 14.5, marginTop: 2 }}>{info ? info.label : tarefa.tarefa}</div>
     </div>
   );
 }
@@ -2180,7 +2230,7 @@ function ModalEditarMomento({ item, onSalvar, onFechar }) {
           onChange={(e) => setDuracao(parseInt(e.target.value, 10) || 1)}
           style={estilos.input}
         />
-        <p style={{ fontSize: 19.5, opacity: 0.7 }}>
+        <p style={{ fontSize: 15.8, opacity: 0.7 }}>
           Alterar a duração desloca automaticamente todos os momentos seguintes deste dia e gera um aviso de
           atraso/adiantamento para Servos e Coordenadores.
         </p>
@@ -2230,7 +2280,7 @@ function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onExcluirCr
           </div>
           <button onClick={() => window.print()} style={estilos.btnPequeno}>🖨️ Imprimir</button>
         </div>
-        <p style={{ fontSize: 19.5, opacity: 0.65, marginTop: -2 }}>
+        <p style={{ fontSize: 15.8, opacity: 0.65, marginTop: -2 }}>
           Clique num momento pra editar hora/duração e as tarefas de cada equipe naquele momento (é aqui que se
           completam dias com equipes ainda em branco, como o Domingo).
         </p>
@@ -2265,7 +2315,7 @@ function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onExcluirCr
         {Object.keys(DIAS_LABEL).map((dia) => (
           <div key={dia} style={{ marginBottom: 20, breakInside: 'avoid' }}>
             <h3>{DIAS_LABEL[dia]}</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 19.5 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
               <thead>
                 <tr>
                   <th style={estilos.thImpressao}>Hora</th>
@@ -2310,8 +2360,8 @@ function LinhaCronogramaEditavel({ item, equipes, tarefas, cores, onSalvar, onEx
       <div onClick={() => setAberto(true)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
         <span style={{ opacity: 0.7, width: 48 }}>{item.hora}</span>
         <span style={{ flex: 1 }}>{item.movimento}</span>
-        {tarefas.length > 0 && <span style={{ fontSize: 18.7, opacity: 0.55 }}>{tarefas.length} equipe(s)</span>}
-        <span style={{ fontSize: 19.5, opacity: 0.6 }}>{item.duracaoMin}min</span>
+        {tarefas.length > 0 && <span style={{ fontSize: 15.1, opacity: 0.55 }}>{tarefas.length} equipe(s)</span>}
+        <span style={{ fontSize: 15.8, opacity: 0.6 }}>{item.duracaoMin}min</span>
       </div>
     );
   }
@@ -2344,7 +2394,7 @@ function LinhaCronogramaEditavel({ item, equipes, tarefas, cores, onSalvar, onEx
       </div>
 
       <label style={{ ...estilos.label, marginTop: 0 }}>Tarefas de equipe neste momento</label>
-      {tarefas.length === 0 && <p style={{ fontSize: 19.5, opacity: 0.6, margin: '4px 0 10px' }}>Nenhuma equipe com tarefa aqui ainda.</p>}
+      {tarefas.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6, margin: '4px 0 10px' }}>Nenhuma equipe com tarefa aqui ainda.</p>}
       {tarefas.map((t) => (
         <TarefaEquipeInline key={t.id} tarefa={t} onSalvar={onSalvarTarefa} onExcluir={() => onExcluirTarefa(t.id)} />
       ))}
@@ -2371,7 +2421,7 @@ function TarefaEquipeInline({ tarefa, onSalvar, onExcluir }) {
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 6 }}>
-      <strong style={{ fontSize: 19.5, width: 84, flexShrink: 0, marginTop: 9, opacity: 0.85 }}>{tarefa.equipeNome}</strong>
+      <strong style={{ fontSize: 15.8, width: 84, flexShrink: 0, marginTop: 9, opacity: 0.85 }}>{tarefa.equipeNome}</strong>
       <textarea
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
@@ -2500,7 +2550,10 @@ function AbaEquipes({ equipes, servos, onSalvar, onExcluir, cores }) {
 
   function salvarForm() {
     if (!form.nome.trim()) return;
-    onSalvar({ id: editandoId || `equipe-${Date.now()}`, ...form });
+    // Preserva coordenadoresIds/senha (não editados aqui) ao salvar — este
+    // formulário só mexe em nome/observações/membros.
+    const existente = equipes.find((e) => e.id === editandoId);
+    onSalvar({ ...existente, id: editandoId || `equipe-${Date.now()}`, ...form });
     setForm({ nome: '', observacoes: '', membrosIds: [] });
     setEditandoId(null);
   }
@@ -2523,7 +2576,7 @@ function AbaEquipes({ equipes, servos, onSalvar, onExcluir, cores }) {
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Equipes ({equipes.length})</h3>
-      <p style={{ fontSize: 19.5, opacity: 0.7 }}>
+      <p style={{ fontSize: 15.8, opacity: 0.7 }}>
         Cada equipe pode ter observações/padrões próprios (itens de pedido da cozinha, cafezinho etc.) — campo livre por enquanto.
       </p>
       <div style={estilos.gridCartoes}>
@@ -2538,8 +2591,8 @@ function AbaEquipes({ equipes, servos, onSalvar, onExcluir, cores }) {
                 ×
               </button>
             </div>
-            <div style={{ fontSize: 19.5, opacity: 0.6, marginTop: 2 }}>{(e.membrosIds || []).length} membro(s)</div>
-            {e.observacoes && <div style={{ fontSize: 20.3, opacity: 0.75, marginTop: 4, whiteSpace: 'pre-wrap' }}>{e.observacoes}</div>}
+            <div style={{ fontSize: 15.8, opacity: 0.6, marginTop: 2 }}>{(e.membrosIds || []).length} membro(s)</div>
+            {e.observacoes && <div style={{ fontSize: 16.4, opacity: 0.75, marginTop: 4, whiteSpace: 'pre-wrap' }}>{e.observacoes}</div>}
           </div>
         ))}
       </div>
@@ -2560,11 +2613,11 @@ function AbaEquipes({ equipes, servos, onSalvar, onExcluir, cores }) {
           atuou nesta equipe e quem nunca atuou
         </label>
         <div style={estilos.listaMembrosSugeridos}>
-          {sugeridos.length === 0 && <p style={{ fontSize: 19.5, opacity: 0.6, margin: 0 }}>Cadastre Servos primeiro (aba Usuários → Servos).</p>}
+          {sugeridos.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6, margin: 0 }}>Cadastre Servos primeiro (aba Usuários → Servos).</p>}
           {sugeridos.map((s) => {
             const experiente = nomeEquipeLower && (s.equipesAnteriores || '').toLowerCase().includes(nomeEquipeLower);
             return (
-              <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 21.1, cursor: 'pointer' }}>
+              <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 17, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.membrosIds.includes(s.id)} onChange={() => alternarMembro(s.id)} />
                 <span style={{ flex: 1 }}>{s.nome}</span>
                 {s.recemFormado && <span style={estilos.badgeNovo}>novo</span>}
@@ -2603,7 +2656,7 @@ function AbaEscalas({ encontro, onSalvarPessoa, onExcluirPessoa, cores }) {
           ['capela', 'Capela Mariana'],
           ['refeicoes', 'Almoço / Jantar'],
         ].map(([k, label]) => (
-          <button key={k} onClick={() => setSub(k)} style={{ ...estilos.tabBtn, ...(sub === k ? estilos.tabBtnAtiva : {}), fontSize: 20.3 }}>
+          <button key={k} onClick={() => setSub(k)} style={{ ...estilos.tabBtn, ...(sub === k ? estilos.tabBtnAtiva : {}), fontSize: 16.4 }}>
             {label}
           </button>
         ))}
@@ -2701,7 +2754,7 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
           ))}
         </div>
       )}
-      {itens.length === 0 && <p style={{ fontSize: 19.5, opacity: 0.6 }}>Nenhum plantão cadastrado ainda pra {DIAS_LABEL[diaSelecionado]}.</p>}
+      {itens.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6 }}>Nenhum plantão cadastrado ainda pra {DIAS_LABEL[diaSelecionado]}.</p>}
       {itens.map((t) => (
         <LinhaEscalaEditavel key={t.id} tarefa={t} equipes={equipes} onSalvar={onSalvar} onExcluir={() => onExcluir(t.id)} cores={cores} />
       ))}
@@ -2737,8 +2790,8 @@ function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }
   return (
     <div>
       <h3 style={{ marginTop: 0, marginBottom: 4 }}>Capela Mariana</h3>
-      <p style={{ fontSize: 19.5, opacity: 0.7, marginTop: 0 }}>Escala única — aplicada automaticamente ao Sábado e ao Domingo.</p>
-      {itens.length === 0 && <p style={{ fontSize: 19.5, opacity: 0.6 }}>Nenhum plantão cadastrado ainda.</p>}
+      <p style={{ fontSize: 15.8, opacity: 0.7, marginTop: 0 }}>Escala única — aplicada automaticamente ao Sábado e ao Domingo.</p>
+      {itens.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6 }}>Nenhum plantão cadastrado ainda.</p>}
       {itens.map((c) => (
         <LinhaEscalaEditavel
           key={c.id}
@@ -2852,15 +2905,15 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Inscrições pendentes ({pendentes.length})</h3>
-      {pendentes.length === 0 && <p style={{ fontSize: 21.1, opacity: 0.6 }}>Nenhuma inscrição pendente no momento.</p>}
+      {pendentes.length === 0 && <p style={{ fontSize: 17, opacity: 0.6 }}>Nenhuma inscrição pendente no momento.</p>}
       {pendentes.map((p) => (
         <div key={p.id} style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
           <strong>{p.nome}</strong>{p.idade ? ` · ${p.idade} anos` : ''}
-          <div style={{ fontSize: 19.5, opacity: 0.75, marginTop: 2 }}>
+          <div style={{ fontSize: 15.8, opacity: 0.75, marginTop: 2 }}>
             {p.contato && <span>{p.contato}</span>}
             {p.responsavel && <span> · Responsável: {p.responsavel}</span>}
           </div>
-          {p.restricoes && <div style={{ fontSize: 19.5, opacity: 0.75 }}>Restrições: {p.restricoes}</div>}
+          {p.restricoes && <div style={{ fontSize: 15.8, opacity: 0.75 }}>Restrições: {p.restricoes}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button onClick={() => onSalvarPessoa({ ...p, status: 'aprovado' })} style={estilos.btnPequeno}>✓ Aprovar</button>
             <button onClick={() => onSalvarPessoa({ ...p, status: 'rejeitado' })} style={{ ...estilos.btnPequeno, background: CORES.terracota }}>✗ Rejeitar</button>
@@ -2872,7 +2925,7 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
       {aprovados.map((p) => (
         <div key={p.id} onClick={() => editar(p)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
           <span style={{ flex: 1 }}>{p.nome}</span>
-          <span style={{ fontSize: 19.5, opacity: 0.6 }}>{p.sala || ''}</span>
+          <span style={{ fontSize: 15.8, opacity: 0.6 }}>{p.sala || ''}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onExcluirPessoa(p.id); }}
             style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
@@ -2890,7 +2943,7 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
             </button>
           ) : (
             <div>
-              <p style={{ fontSize: 21.1, marginTop: 0 }}>
+              <p style={{ fontSize: 17, marginTop: 0 }}>
                 Isso vai criar um registro de Servo pra cada um dos {aprovados.length} Encontristas confirmados
                 (base pra convocar no próximo EJC) e movê-los pra "Formados" aqui. Confirma?
               </p>
@@ -2986,16 +3039,16 @@ const estilos = {
     position: 'relative',
   },
   seletorHalo: { textAlign: 'center', marginBottom: 36 },
-  seletorTitulo: { fontFamily: "'Playfair Display', serif", color: CORES.dourado, fontSize: 48.8, margin: 0 },
+  seletorTitulo: { fontFamily: "'Playfair Display', serif", color: CORES.dourado, fontSize: 39.4, margin: 0 },
   seletorTituloInstitucional: {
     fontFamily: "'Playfair Display', serif",
     color: CORES.dourado,
-    fontSize: 39,
+    fontSize: 31.5,
     margin: '0 auto',
     maxWidth: 520,
     lineHeight: 1.3,
   },
-  seletorSubtitulo: { fontSize: 21.1, letterSpacing: 1, textTransform: 'uppercase', color: CORES.marfim, opacity: 0.7, marginTop: 10 },
+  seletorSubtitulo: { fontSize: 17, letterSpacing: 1, textTransform: 'uppercase', color: CORES.marfim, opacity: 0.7, marginTop: 10 },
   loginForm: {
     background: 'white',
     color: '#222',
@@ -3007,17 +3060,17 @@ const estilos = {
     position: 'relative',
     zIndex: 1,
   },
-  label: { display: 'block', fontSize: 19.5, opacity: 0.7, marginBottom: 4, marginTop: 8 },
+  label: { display: 'block', fontSize: 15.8, opacity: 0.7, marginBottom: 4, marginTop: 8 },
   input: {
     width: '100%',
     padding: '10px 12px',
     border: '1px solid #ccc',
     borderRadius: 6,
-    fontSize: 22.8,
+    fontSize: 18.4,
     marginBottom: 12,
     boxSizing: 'border-box',
   },
-  erro: { color: CORES.terracota, fontSize: 19.5, marginBottom: 10 },
+  erro: { color: CORES.terracota, fontSize: 15.8, marginBottom: 10 },
   btnEntrar: {
     width: '100%',
     padding: 12,
@@ -3029,7 +3082,7 @@ const estilos = {
     cursor: 'pointer',
     marginBottom: 8,
   },
-  btnLink: { background: 'none', border: 'none', color: CORES.verde, cursor: 'pointer', fontSize: 21.1, width: '100%', textAlign: 'center' },
+  btnLink: { background: 'none', border: 'none', color: CORES.verde, cursor: 'pointer', fontSize: 17, width: '100%', textAlign: 'center' },
   btnInscricao: {
     position: 'relative',
     zIndex: 1,
@@ -3039,7 +3092,7 @@ const estilos = {
     border: 'none',
     borderRadius: 32,
     fontWeight: 700,
-    fontSize: 24.4,
+    fontSize: 19.7,
     cursor: 'pointer',
     letterSpacing: 0.2,
     animation: 'pulseGlowInscricao 2.4s ease-in-out infinite',
@@ -3052,7 +3105,7 @@ const estilos = {
     overflow: 'hidden',
   },
   telaMetade: { flex: 1, padding: '32px 30px', overflow: 'hidden', position: 'relative', zIndex: 1 },
-  telaTituloColuna: { fontFamily: "'Playfair Display', serif", fontSize: 40.6, margin: 0, textTransform: 'uppercase', letterSpacing: 1 },
+  telaTituloColuna: { fontFamily: "'Playfair Display', serif", fontSize: 32.8, margin: 0, textTransform: 'uppercase', letterSpacing: 1 },
   hotspotSair: { position: 'fixed', bottom: 0, right: 0, width: 32, height: 32, zIndex: 45, cursor: 'default' },
   telaoBarraTopo: {
     // fixed (não absolute) — o Telão pode rolar verticalmente quando o dia
@@ -3075,17 +3128,35 @@ const estilos = {
     padding: '6px 14px',
     borderRadius: 20,
     cursor: 'pointer',
-    fontSize: 21.1,
+    fontSize: 17,
   },
   bannerContainer: { position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', gap: 8, zIndex: 20 },
   banner: { padding: '12px 22px', borderRadius: 8, color: 'white', fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.35)', textAlign: 'center' },
-  bannerInline: { padding: '10px 14px', borderRadius: 8, color: 'white', fontWeight: 600, marginBottom: 10, fontSize: 22.8 },
+  bannerInline: { padding: '10px 14px', borderRadius: 8, color: 'white', fontWeight: 600, marginBottom: 10, fontSize: 18.4 },
+  // Aviso manual do Coordenador Geral — centralizado na tela (não só embaixo,
+  // como os demais banners), maior e um pouco transparente.
+  avisoManual: {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: `${CORES.vermelhoSangue}e0`,
+    color: '#fff',
+    padding: '30px 48px',
+    borderRadius: 16,
+    fontWeight: 700,
+    fontSize: 29.6,
+    textAlign: 'center',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+    zIndex: 50,
+    maxWidth: '82vw',
+  },
   headerCelular: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px' },
-  btnSairHeader: { background: 'rgba(255,255,255,0.12)', border: `1px solid ${CORES.dourado}55`, color: 'inherit', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 21.1 },
+  btnSairHeader: { background: 'rgba(255,255,255,0.12)', border: `1px solid ${CORES.dourado}55`, color: 'inherit', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 17 },
   tabNav: { display: 'flex', overflowX: 'auto', gap: 4, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)' },
-  tabBtn: { background: 'transparent', border: 'none', color: 'inherit', opacity: 0.6, padding: '8px 10px', cursor: 'pointer', fontSize: 21.1, whiteSpace: 'nowrap', borderRadius: 6 },
+  tabBtn: { background: 'transparent', border: 'none', color: 'inherit', opacity: 0.6, padding: '8px 10px', cursor: 'pointer', fontSize: 17, whiteSpace: 'nowrap', borderRadius: 6 },
   tabBtnAtiva: { opacity: 1, background: 'rgba(212,175,55,0.18)', fontWeight: 600 },
-  avisoOffline: { background: '#8B4513', color: 'white', fontSize: 20.3, padding: '8px 16px', textAlign: 'center' },
+  avisoOffline: { background: '#8B4513', color: 'white', fontSize: 16.4, padding: '8px 16px', textAlign: 'center' },
   seletorDias: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
   // auto-fit + minmax: 2 colunas quando cabe (computador), 1 coluna quando
   // não cabe (celular) — sem precisar de media query.
@@ -3094,10 +3165,10 @@ const estilos = {
   // largas (notebook/desktop) preenche várias colunas em vez de empilhar um
   // cartão embaixo do outro deixando metade da tela vazia.
   gridCartoes: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, alignItems: 'start' },
-  chipDia: { padding: '6px 12px', borderRadius: 20, border: `1px solid ${CORES.dourado}66`, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 21.1 },
+  chipDia: { padding: '6px 12px', borderRadius: 20, border: `1px solid ${CORES.dourado}66`, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 17 },
   cartaoConfig: { padding: 14, borderRadius: 10, marginBottom: 14 },
-  btnPequeno: { padding: '8px 14px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 21.1 },
-  linhaServoCelular: { display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 21.9 },
+  btnPequeno: { padding: '8px 14px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 17 },
+  linhaServoCelular: { display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 17.7 },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 },
   modalCaixa: { background: 'white', color: '#222', padding: 24, borderRadius: 10, maxWidth: 380, width: '100%' },
   logoCantoImg: { width: 48, height: 56, objectFit: 'contain', flexShrink: 0 },
@@ -3109,8 +3180,8 @@ const estilos = {
     padding: '4px 10px',
     marginBottom: 4,
   },
-  badgeNovo: { fontSize: 17.1, background: CORES.verde, color: 'white', padding: '2px 7px', borderRadius: 10, fontWeight: 600 },
-  badgeExperiente: { fontSize: 17.1, background: CORES.dourado, color: CORES.verdeEscuro, padding: '2px 7px', borderRadius: 10, fontWeight: 600 },
+  badgeNovo: { fontSize: 13.8, background: CORES.verde, color: 'white', padding: '2px 7px', borderRadius: 10, fontWeight: 600 },
+  badgeExperiente: { fontSize: 13.8, background: CORES.dourado, color: CORES.verdeEscuro, padding: '2px 7px', borderRadius: 10, fontWeight: 600 },
   thImpressao: { border: '1px solid #999', padding: '4px 6px', textAlign: 'left', background: '#eee' },
   tdImpressao: { border: '1px solid #ccc', padding: '4px 6px' },
 };
