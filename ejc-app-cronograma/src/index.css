@@ -16,7 +16,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--gpe-marfim);
-  font-size: 32px;
+  font-size: 26px;
   line-height: 1.5;
 }
 
