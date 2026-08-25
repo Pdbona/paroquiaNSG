@@ -1938,7 +1938,7 @@ function MarcaDaguaImagem({ opacidade = 0.12 }) {
 // painel Ao Vivo — imagem de Nossa Senhora de Guadalupe, nome do evento e o
 // dia em destaque (o resto do conteúdo entra na página seguinte, forçado
 // pelo page-break abaixo).
-function CapaImpressao({ branding, dia }) {
+function CapaImpressao({ branding, dia, rotulo }) {
   return (
     <div style={{ textAlign: 'center', paddingTop: 60, breakAfter: 'page', pageBreakAfter: 'always' }}>
       <img src={imagemSantaUrl} alt="Nossa Senhora de Guadalupe" style={{ width: 200, filter: 'brightness(1.05)' }} />
@@ -1954,7 +1954,7 @@ function CapaImpressao({ branding, dia }) {
         }}
       >
         <span style={{ fontSize: 28, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-          {DIAS_LABEL[dia]}
+          {rotulo || DIAS_LABEL[dia]}
         </span>
       </div>
     </div>
@@ -1981,6 +1981,19 @@ function FaixaDiaImpressao({ dia }) {
       }}
     >
       {DIAS_LABEL[dia]}
+    </div>
+  );
+}
+
+// Uma seção de um dia dentro de uma impressão "3 dias seguidos" — a faixa do
+// dia entra no topo da própria página de conteúdo (não numa página só sua,
+// como a capa) e o próximo dia começa numa página nova (quebra ANTES de
+// cada dia, exceto o primeiro, que já começa logo após a capa).
+function SecaoDiaImpressao({ dia, primeiro, children }) {
+  return (
+    <div style={primeiro ? undefined : { breakBefore: 'page', pageBreakBefore: 'always' }}>
+      <FaixaDiaImpressao dia={dia} />
+      {children}
     </div>
   );
 }
@@ -2059,7 +2072,11 @@ function PainelAoVivo(props) {
   const [modoImpressao, setModoImpressao] = useState(null);
   const [equipeImpressao, setEquipeImpressao] = useState('');
 
-  function imprimirComo(modo) {
+  // equipeParaImprimir é passado só pelos botões do Coordenador de Equipe
+  // (a própria equipe, fixa) — os do Coordenador Geral já mantêm o valor
+  // escolhido no <select> em equipeImpressao.
+  function imprimirComo(modo, equipeParaImprimir) {
+    if (equipeParaImprimir !== undefined) setEquipeImpressao(equipeParaImprimir);
     setModoImpressao(modo);
     // dá um tick pro React re-renderizar a .imprimir-area com o conteúdo
     // novo antes de abrir o diálogo de impressão do navegador.
@@ -2091,15 +2108,16 @@ function PainelAoVivo(props) {
           <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir em separado — {DIAS_LABEL[diaSelecionado]}</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
             <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
+            <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
             <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
             <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
             <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             <select
               value={equipeImpressao}
               onChange={(e) => setEquipeImpressao(e.target.value)}
-              style={{ ...estilos.input, marginBottom: 0, flex: 1 }}
+              style={{ ...estilos.input, marginBottom: 0, flex: 1, minWidth: 160 }}
             >
               <option value="">Escolha uma equipe…</option>
               {encontro.equipes.map((eq) => (
@@ -2107,6 +2125,19 @@ function PainelAoVivo(props) {
               ))}
             </select>
             <button onClick={() => equipeImpressao && imprimirComo('equipe')} style={estilos.btnPequeno}>🖨️ Imprimir equipe</button>
+            <button onClick={() => equipeImpressao && imprimirComo('equipe3dias')} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+          </div>
+        </div>
+      )}
+
+      {isCoordenadorEquipe && equipeCoordenada && (
+        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
+          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir em separado — {DIAS_LABEL[diaSelecionado]}</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+            <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
+            <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
+            <button onClick={() => imprimirComo('equipe', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe {equipeCoordenada}</button>
+            <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
           </div>
         </div>
       )}
@@ -2258,7 +2289,11 @@ function PainelAoVivo(props) {
         coluna de equipe(s) visível na tela — e os demais são as impressões
         em separado do Coordenador Geral. Sempre um dia só, o selecionado. */}
     <div className="imprimir-area">
-      <CapaImpressao branding={branding} dia={diaSelecionado} />
+      <CapaImpressao
+        branding={branding}
+        dia={diaSelecionado}
+        rotulo={modoImpressao === 'encontrista3dias' || modoImpressao === 'equipe3dias' ? 'Sexta a Domingo — 28 a 30/08' : undefined}
+      />
 
       {(!modoImpressao || modoImpressao === 'padrao' || modoImpressao === 'encontrista') && (
         <>
@@ -2332,6 +2367,72 @@ function PainelAoVivo(props) {
           {tarefasDia.filter((t) => t.equipeNome === equipeImpressao).length === 0 && (
             <p>Nenhuma tarefa cadastrada pra essa equipe neste dia.</p>
           )}
+        </>
+      )}
+
+      {modoImpressao === 'encontrista3dias' && (
+        <>
+          {Object.keys(DIAS_LABEL).map((dia, i) => {
+            const itensDoDia = encontro.cronograma.filter((it) => it.dia === dia).sort((a, b) => a.ordem - b.ordem);
+            return (
+              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
+                <h3>Cronograma — Encontristas</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8, marginBottom: 20 }}>
+                  <thead>
+                    <tr>
+                      <th style={estilos.thImpressao}>Hora</th>
+                      <th style={estilos.thImpressao}>Duração</th>
+                      <th style={estilos.thImpressao}>Movimento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensDoDia.map((it) => (
+                      <tr key={it.id}>
+                        <td style={estilos.tdImpressao}>{it.hora}</td>
+                        <td style={estilos.tdImpressao}>{it.duracaoMin}min</td>
+                        <td style={estilos.tdImpressao}>{it.movimento}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </SecaoDiaImpressao>
+            );
+          })}
+        </>
+      )}
+
+      {modoImpressao === 'equipe3dias' && equipeImpressao && (
+        <>
+          {Object.keys(DIAS_LABEL).map((dia, i) => {
+            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter(
+              (t) => t.equipeNome === equipeImpressao
+            );
+            return (
+              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
+                <h3>Equipe {equipeImpressao}</h3>
+                {tarefasDoDia.length === 0 ? (
+                  <p>Nenhuma tarefa cadastrada pra essa equipe neste dia.</p>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
+                    <thead>
+                      <tr>
+                        <th style={estilos.thImpressao}>Hora</th>
+                        <th style={estilos.thImpressao}>Tarefa</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tarefasDoDia.map((t) => (
+                        <tr key={t.id}>
+                          <td style={estilos.tdImpressao}>{t.hora}</td>
+                          <td style={estilos.tdImpressao}>{ORIGEM_INFO[t.origem] ? ORIGEM_INFO[t.origem].label : t.tarefa}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </SecaoDiaImpressao>
+            );
+          })}
         </>
       )}
 
@@ -2883,7 +2984,15 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcl
   const [form, setForm] = useState(valoresVazios(campos));
   const [editandoId, setEditandoId] = useState(null);
   const [erro, setErro] = useState('');
+  // Lista dos já cadastrados fica recolhida por padrão — o formulário de
+  // cadastro/edição é o que importa na maioria das visitas a esta tela.
+  const [listaAberta, setListaAberta] = useState(false);
   const { buscandoCep, erroCep, onCepChange } = useCepAutocomplete(setForm);
+
+  const pessoasOrdenadas = useMemo(
+    () => [...pessoas].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')),
+    [pessoas]
+  );
 
   function salvarForm() {
     const erros = validarCampos(campos, form);
@@ -2906,18 +3015,7 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcl
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>{titulo} ({pessoas.length})</h3>
-      {pessoas.map((p) => (
-        <div key={p.id} onClick={() => editar(p)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
-          <span style={{ flex: 1 }}>{p.nome}</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onExcluir(p.id); }}
-            style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
-          >
-            ×
-          </button>
-        </div>
-      ))}
-      <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 16 }}>
+      <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
         <h4 style={{ marginTop: 0 }}>{editandoId ? 'Editar' : '+ Novo(a)'} {titulo.slice(0, -1)}</h4>
         <p style={{ fontSize: 14, opacity: 0.6, marginTop: -6 }}>* campo obrigatório</p>
         <div className="ejc-form-grid">
@@ -2944,6 +3042,21 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcl
           )}
         </div>
       </div>
+
+      <button onClick={() => setListaAberta((a) => !a)} style={{ ...estilos.btnLink, textAlign: 'left', marginTop: 16 }}>
+        {listaAberta ? '▾' : '▸'} {titulo} cadastrados ({pessoas.length})
+      </button>
+      {listaAberta && pessoasOrdenadas.map((p) => (
+        <div key={p.id} onClick={() => editar(p)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
+          <span style={{ flex: 1 }}>{p.nome}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onExcluir(p.id); }}
+            style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
