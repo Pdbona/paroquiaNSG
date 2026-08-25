@@ -1163,7 +1163,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
       {/* hotspot invisível para sair (canto inferior direito) */}
       <div onClick={onSair} style={estilos.hotspotSair} title="Sair do modo tela" />
 
-      <div style={estilos.telaoBarraTopo}>
+      <div style={{ ...estilos.telaoBarraTopo, background: cores.fundo }}>
         <div style={estilos.seletorDias}>
           {Object.keys(DIAS_LABEL).map((d) => (
             <button
@@ -1180,11 +1180,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
         </button>
       </div>
 
-      <div style={estilos.logoCantoTelao}>
-        <img src={imagemSantaUrl} alt="" style={{ width: 26, height: 32, objectFit: 'contain' }} />
-        <span>Paróquia {branding.nomeParoquia}</span>
-      </div>
-      <div style={{ ...estilos.telaMetade, paddingTop: 58 }}>
+      <div style={{ ...estilos.telaMetade, paddingTop: 70 }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Encontristas</h2>
         <p style={{ opacity: 0.7, marginTop: -6, fontSize: 27.6 }}>{DIAS_LABEL[diaAtivo]}</p>
         {atual && <MomentoDestaque item={atual} tamanho="grande" cores={cores} />}
@@ -1195,7 +1191,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
           ))}
         </div>
       </div>
-      <div style={{ ...estilos.telaMetade, paddingTop: 58, borderLeft: `2px solid ${CORES.dourado}44` }}>
+      <div style={{ ...estilos.telaMetade, paddingTop: 70, borderLeft: `2px solid ${CORES.dourado}44` }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Servos</h2>
         <p style={{ opacity: 0.7, marginTop: -6, fontSize: 27.6 }}>{DIAS_LABEL[diaAtivo]}</p>
         <div style={{ overflowY: 'auto', maxHeight: '72vh' }}>
@@ -1293,13 +1289,16 @@ function LinhaMomentoPequena({ item }) {
     <div
       style={{
         display: 'flex',
-        gap: 14,
+        gap: 16,
         padding: '6px 10px',
         borderRadius: 6,
         background: movimentacao ? `${CORES.terracota}22` : 'transparent',
       }}
     >
-      <span style={{ opacity: 0.6, width: 62, fontSize: 30.9 }}>{item.hora}</span>
+      {/* minWidth (não width) + flexShrink:0 — sem isso o flex espreme a
+          caixa da hora abaixo da largura do texto em fontes grandes, e o
+          número acaba vazando pro espaço do gap, "colando" no movimento. */}
+      <span style={{ opacity: 0.6, minWidth: 92, flexShrink: 0, fontSize: 30.9 }}>{item.hora}</span>
       <span style={{ fontSize: 30.9 }}>{item.movimento}</span>
     </div>
   );
@@ -3028,22 +3027,13 @@ const estilos = {
     overflow: 'hidden',
   },
   telaMetade: { flex: 1, padding: '32px 30px', overflow: 'hidden', position: 'relative', zIndex: 1 },
-  logoCantoTelao: {
-    position: 'fixed',
-    bottom: 10,
-    left: 14,
-    zIndex: 15,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 18.7,
-    opacity: 0.55,
-    letterSpacing: 0.3,
-  },
   telaTituloColuna: { fontFamily: "'Playfair Display', serif", fontSize: 40.6, margin: 0, textTransform: 'uppercase', letterSpacing: 1 },
-  hotspotSair: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, zIndex: 10, cursor: 'default' },
+  hotspotSair: { position: 'fixed', bottom: 0, right: 0, width: 32, height: 32, zIndex: 45, cursor: 'default' },
   telaoBarraTopo: {
-    position: 'absolute',
+    // fixed (não absolute) — o Telão pode rolar verticalmente quando o dia
+    // tem muita coisa, e a barra de dias precisa continuar visível parada
+    // no topo em vez de rolar junto com o conteúdo.
+    position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
@@ -3051,8 +3041,7 @@ const estilos = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '14px 24px 0',
-    opacity: 0.85,
+    padding: '14px 24px 12px',
   },
   telaoBtnTema: {
     background: 'rgba(255,255,255,0.08)',
