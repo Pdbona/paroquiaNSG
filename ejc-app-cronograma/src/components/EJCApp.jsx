@@ -1386,7 +1386,26 @@ function CaixaTarefaEquipe({ tarefa, destaque, cores, grande }) {
   );
 }
 
-const LABELS_CADASTRO = { usuarios: '👤 Usuários', encontro: '📅 Encontro', encontristas: '🙋 Encontristas' };
+// Árvore da barra lateral do Cadastro Geral — cada item é uma "seção"
+// (secaoAtiva) que a área de conteúdo sabe renderizar diretamente, sem mais
+// abas horizontais aninhadas (essas cortavam/quebravam em telas estreitas).
+const MENU_LATERAL = [
+  { grupo: 'Usuários', icone: '👤', itens: [
+    { key: 'servos', label: 'Servos' },
+    { key: 'coordenadoresGerais', label: 'Coordenadores Gerais' },
+    { key: 'coordenadoresEquipe', label: 'Coordenadores de Equipe' },
+    { key: 'dirigentes', label: 'Dirigentes' },
+    { key: 'acessos', label: 'Senha de Acesso' },
+  ]},
+  { grupo: 'Encontro', icone: '📅', itens: [
+    { key: 'ejc', label: 'EJC (cronograma)' },
+    { key: 'equipes', label: 'Equipes' },
+    { key: 'escalas', label: 'Escalas' },
+  ]},
+  { grupo: 'Encontristas', icone: '🙋', itens: [
+    { key: 'encontristas', label: 'Encontristas' },
+  ]},
+];
 
 // ============================================================================
 // Tela: Modo Celular (Servo / Coordenador / Dirigente)
@@ -1394,8 +1413,8 @@ const LABELS_CADASTRO = { usuarios: '👤 Usuários', encontro: '📅 Encontro',
 // - Coordenador: só "Encontro" (ao vivo) — edita momentos (cascata), envia
 //   avisos, tema.
 // - Dirigente: dois grandes blocos —
-//     CADASTRO (menu lateral recolhível): Usuários (Servos/Coordenadores/
-//       Dirigentes/Acessos) / Encontro (EJC + Equipes) / Encontristas
+//     CADASTRO GERAL: barra lateral fixa (vira drawer recolhível só no
+//       celular) com Usuários / Encontro / Encontristas
 //     ENCONTRO: visão ao vivo, somente leitura
 // ============================================================================
 function ModoCelular(props) {
@@ -1408,9 +1427,8 @@ function ModoCelular(props) {
   // alternar tema) — só o Geral fica identificado por nome.
   const podeEditarAoVivo = isCoordenadorGeral || isCoordenadorEquipe;
   const [abaTopo, setAbaTopo] = useState('cadastro'); // 'cadastro' | 'encontro' — só Dirigente usa
-  const [abaCadastro, setAbaCadastro] = useState('usuarios'); // 'usuarios' | 'encontro' | 'encontristas'
-  const [abaEncontroSub, setAbaEncontroSub] = useState('ejc'); // 'ejc' | 'equipes' | 'escalas'
-  const [menuAberto, setMenuAberto] = useState(false);
+  const [secaoAtiva, setSecaoAtiva] = useState('servos'); // folha ativa dentro de MENU_LATERAL
+  const [menuAberto, setMenuAberto] = useState(false); // só controla o drawer no celular
   const tema = encontro.config.tema;
   const cores = tema === 'dark'
     ? { fundo: CORES.verdeEscuro, texto: CORES.marfim, cartao: 'rgba(255,255,255,0.06)' }
@@ -1429,18 +1447,13 @@ function ModoCelular(props) {
   // num computador — ver PainelAoVivo, que usa CSS grid responsivo.
   const mostrandoAoVivo = !isDirigente || abaTopo === 'encontro';
 
-  function abrirCadastro() {
-    if (abaTopo === 'cadastro') setMenuAberto((m) => !m);
-    else {
-      setAbaTopo('cadastro');
-      setMenuAberto(true);
-    }
-  }
-
-  function escolherSecaoCadastro(k) {
-    setAbaCadastro(k);
+  function escolherSecao(k) {
+    setAbaTopo('cadastro');
+    setSecaoAtiva(k);
     setMenuAberto(false);
   }
+
+  const tituloSecaoAtiva = MENU_LATERAL.flatMap((g) => g.itens).find((i) => i.key === secaoAtiva)?.label || '';
 
   return (
     <div style={{ minHeight: '100vh', background: cores.fundo, color: cores.texto, fontFamily: 'Roboto, sans-serif', position: 'relative' }}>
@@ -1458,33 +1471,16 @@ function ModoCelular(props) {
       <div style={{ height: 4, background: CORES.dourado }} />
 
       {isDirigente && (
-        <div style={estilos.tabNav}>
-          <button
-            onClick={abrirCadastro}
-            style={{ ...estilos.tabBtn, ...(abaTopo === 'cadastro' ? estilos.tabBtnAtiva : {}), fontSize: 22.8, fontWeight: 700 }}
-          >
-            ☰ Cadastro Geral{abaTopo === 'cadastro' ? ` — ${LABELS_CADASTRO[abaCadastro]}` : ''}
+        <div className="ejc-barra-topo" style={estilos.tabNav}>
+          <button className="ejc-btn-hamburguer" onClick={() => setMenuAberto((m) => !m)} style={{ ...estilos.tabBtn, fontSize: 22.8, fontWeight: 700 }}>
+            ☰ {abaTopo === 'cadastro' ? tituloSecaoAtiva : 'Cadastro Geral'}
           </button>
           <button
-            onClick={() => { setAbaTopo('encontro'); setMenuAberto(false); }}
-            style={{ ...estilos.tabBtn, ...(abaTopo === 'encontro' ? estilos.tabBtnAtiva : {}), fontSize: 22.8, fontWeight: 700 }}
+            onClick={() => { setAbaTopo(abaTopo === 'encontro' ? 'cadastro' : 'encontro'); setMenuAberto(false); }}
+            style={{ ...estilos.tabBtn, ...(abaTopo === 'encontro' ? estilos.tabBtnAtiva : {}), fontSize: 22.8, fontWeight: 700, marginLeft: 'auto' }}
           >
-            Encontro
+            {abaTopo === 'encontro' ? '← Voltar ao Cadastro' : 'Ver Encontro (Ao Vivo) →'}
           </button>
-        </div>
-      )}
-
-      {isDirigente && abaTopo === 'cadastro' && abaCadastro === 'encontro' && (
-        <div style={{ ...estilos.tabNav, opacity: 0.85 }}>
-          {[
-            ['ejc', 'EJC (cronograma)'],
-            ['equipes', 'Equipes'],
-            ['escalas', 'Escalas'],
-          ].map(([k, label]) => (
-            <button key={k} onClick={() => setAbaEncontroSub(k)} style={{ ...estilos.tabBtn, ...(abaEncontroSub === k ? estilos.tabBtnAtiva : {}), fontSize: 20.3 }}>
-              {label}
-            </button>
-          ))}
         </div>
       )}
 
@@ -1494,139 +1490,137 @@ function ModoCelular(props) {
         </div>
       )}
 
-      {/* Menu lateral recolhível — só aparece quando "Cadastro" é clicado */}
-      {isDirigente && menuAberto && (
-        <>
-          <div onClick={() => setMenuAberto(false)} style={estilos.drawerOverlay} />
-          <div style={{ ...estilos.drawerPainel, background: tema === 'dark' ? '#0F3A28' : '#fff', color: cores.texto }}>
-            <h4 style={{ marginTop: 0, color: CORES.dourado, fontFamily: "'Playfair Display', serif" }}>Cadastro Geral</h4>
-            {Object.entries(LABELS_CADASTRO).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => escolherSecaoCadastro(k)}
-                style={{ ...estilos.itemDrawer, ...(abaCadastro === k ? estilos.itemDrawerAtivo : {}) }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      <div className="ejc-layout-cadastro">
+        {isDirigente && abaTopo === 'cadastro' && (
+          <>
+            {menuAberto && <div className="ejc-sidebar-overlay" onClick={() => setMenuAberto(false)} />}
+            <div
+              className={`ejc-sidebar${menuAberto ? ' ejc-sidebar--aberta' : ''}`}
+              style={{ background: tema === 'dark' ? '#0F3A28' : '#fff', color: cores.texto }}
+            >
+              <h4 style={{ margin: '4px 0 10px', padding: '0 14px', color: CORES.dourado, fontFamily: "'Playfair Display', serif" }}>Cadastro Geral</h4>
+              {MENU_LATERAL.map((grupo) => (
+                <div key={grupo.grupo} style={{ marginBottom: 10 }}>
+                  <div style={{ padding: '4px 14px', fontSize: 14, opacity: 0.55, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    {grupo.icone} {grupo.grupo}
+                  </div>
+                  {grupo.itens.map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => escolherSecao(item.key)}
+                      style={{ ...estilos.itemDrawer, ...(secaoAtiva === item.key ? estilos.itemDrawerAtivo : {}) }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
-      <div style={{ padding: 16, maxWidth: mostrandoAoVivo ? 1200 : 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        {!isDirigente && <PainelAoVivo {...props} podeEditar={podeEditarAoVivo} cores={cores} />}
+        <div className="ejc-conteudo-cadastro" style={{ padding: 16, maxWidth: mostrandoAoVivo ? 1200 : 1100, margin: '0 auto', position: 'relative', zIndex: 1, width: '100%' }}>
+          {!isDirigente && <PainelAoVivo {...props} podeEditar={podeEditarAoVivo} cores={cores} />}
 
-        {isDirigente && abaTopo === 'encontro' && <PainelAoVivo {...props} podeEditar={false} cores={cores} />}
+          {isDirigente && abaTopo === 'encontro' && <PainelAoVivo {...props} podeEditar={false} cores={cores} />}
 
-        {isDirigente && abaTopo === 'cadastro' && abaCadastro === 'usuarios' && (
-          <AbaUsuarios
-            encontro={encontro}
-            onSalvarPessoa={props.onSalvarPessoa}
-            onExcluirPessoa={props.onExcluirPessoa}
-            onSalvarConfig={props.onSalvarConfig}
-            cores={cores}
-          />
-        )}
-        {isDirigente && abaTopo === 'cadastro' && abaCadastro === 'encontro' && abaEncontroSub === 'ejc' && (
-          <AbaCronograma {...props} cores={cores} />
-        )}
-        {isDirigente && abaTopo === 'cadastro' && abaCadastro === 'encontro' && abaEncontroSub === 'equipes' && (
-          <AbaEquipes
-            equipes={encontro.equipes}
-            servos={encontro.servos}
-            onSalvar={(e) => props.onSalvarPessoa('equipes', e)}
-            onExcluir={(id) => props.onExcluirPessoa('equipes', id)}
-            cores={cores}
-          />
-        )}
-        {isDirigente && abaTopo === 'cadastro' && abaCadastro === 'encontro' && abaEncontroSub === 'escalas' && (
-          <AbaEscalas
-            encontro={encontro}
-            onSalvarPessoa={props.onSalvarPessoa}
-            onExcluirPessoa={props.onExcluirPessoa}
-            cores={cores}
-          />
-        )}
-        {isDirigente && abaTopo === 'cadastro' && abaCadastro === 'encontristas' && (
-          <AbaEncontristas
-            encontristas={encontro.encontristas}
-            onSalvarPessoa={(p) => props.onSalvarPessoa('encontristas', p)}
-            onExcluirPessoa={(id) => props.onExcluirPessoa('encontristas', id)}
-            onFinalizarEncontro={props.onFinalizarEncontro}
-            cores={cores}
-          />
-        )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'servos' && (
+            <AbaCadastroPessoas
+              titulo="Servos"
+              pessoas={encontro.servos}
+              campos={CAMPOS_SERVO}
+              equipes={encontro.equipes}
+              onSalvar={(p) => props.onSalvarPessoa('servos', p)}
+              onExcluir={(id) => props.onExcluirPessoa('servos', id)}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'coordenadoresGerais' && (
+            <AbaCoordenadores
+              servos={encontro.servos}
+              coordenadores={encontro.config.coordenadoresGerais}
+              onSalvarConfig={props.onSalvarConfig}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'coordenadoresEquipe' && (
+            <AbaCoordenadoresEquipe
+              equipes={encontro.equipes}
+              servos={encontro.servos}
+              onSalvarEquipe={(e) => props.onSalvarPessoa('equipes', e)}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'dirigentes' && (
+            <AbaDirigentes
+              servos={encontro.servos}
+              dirigentesPorFuncao={encontro.config.dirigentesPorFuncao}
+              onSalvarConfig={props.onSalvarConfig}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'acessos' && (
+            <AbaAcessosGerais
+              senhaServo={encontro.config.senhaServo}
+              senhaTela={encontro.config.senhaTela}
+              senhaCoordenadorEquipe={encontro.config.senhaCoordenadorEquipe}
+              senhaDirigente={encontro.config.senhaDirigente}
+              onSalvarConfig={props.onSalvarConfig}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'ejc' && (
+            <AbaCronograma {...props} cores={cores} />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'equipes' && (
+            <AbaEquipes
+              equipes={encontro.equipes}
+              servos={encontro.servos}
+              onSalvar={(e) => props.onSalvarPessoa('equipes', e)}
+              onExcluir={(id) => props.onExcluirPessoa('equipes', id)}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'escalas' && (
+            <AbaEscalas
+              encontro={encontro}
+              onSalvarPessoa={props.onSalvarPessoa}
+              onExcluirPessoa={props.onExcluirPessoa}
+              cores={cores}
+            />
+          )}
+          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'encontristas' && (
+            <AbaEncontristas
+              encontristas={encontro.encontristas}
+              onSalvarPessoa={(p) => props.onSalvarPessoa('encontristas', p)}
+              onExcluirPessoa={(id) => props.onExcluirPessoa('encontristas', id)}
+              onFinalizarEncontro={props.onFinalizarEncontro}
+              cores={cores}
+            />
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
 
-// ============================================================================
-// Aba Cadastro > Usuários — Servos / Coordenadores / Dirigentes / Acessos.
-// Coordenador NÃO é um cadastro próprio: é um Servo escolhido para coordenar
-// este EJC, com uma senha de acesso atribuída na hora da escolha.
-// ============================================================================
-function AbaUsuarios({ encontro, onSalvarPessoa, onExcluirPessoa, onSalvarConfig, cores }) {
-  const [sub, setSub] = useState('servos');
-  return (
-    <div>
-      <div style={{ ...estilos.tabNav, opacity: 0.85, padding: 0, marginBottom: 14, flexWrap: 'wrap' }}>
-        {[
-          ['servos', 'Servos'],
-          ['coordenadoresGerais', 'Coordenadores Gerais'],
-          ['coordenadoresEquipe', 'Coordenadores de Equipe'],
-          ['dirigentes', 'Dirigentes'],
-          ['acessos', 'Senha de Acesso'],
-        ].map(([k, label]) => (
-          <button key={k} onClick={() => setSub(k)} style={{ ...estilos.tabBtn, ...(sub === k ? estilos.tabBtnAtiva : {}), fontSize: 20.3 }}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {sub === 'servos' && (
-        <AbaCadastroPessoas
-          titulo="Servos"
-          pessoas={encontro.servos}
-          campos={CAMPOS_SERVO}
-          onSalvar={(p) => onSalvarPessoa('servos', p)}
-          onExcluir={(id) => onExcluirPessoa('servos', id)}
-          cores={cores}
-        />
-      )}
-      {sub === 'coordenadoresGerais' && (
-        <AbaCoordenadores
-          servos={encontro.servos}
-          coordenadores={encontro.config.coordenadoresGerais}
-          onSalvarConfig={onSalvarConfig}
-          cores={cores}
-        />
-      )}
-      {sub === 'coordenadoresEquipe' && (
-        <AbaCoordenadoresEquipe
-          equipes={encontro.equipes}
-          servos={encontro.servos}
-          onSalvarEquipe={(e) => onSalvarPessoa('equipes', e)}
-          cores={cores}
-        />
-      )}
-      {sub === 'dirigentes' && (
-        <AbaDirigentes
-          servos={encontro.servos}
-          dirigentesPorFuncao={encontro.config.dirigentesPorFuncao}
-          onSalvarConfig={onSalvarConfig}
-          cores={cores}
-        />
-      )}
-      {sub === 'acessos' && (
-        <AbaAcessosGerais
-          senhaServo={encontro.config.senhaServo}
-          senhaTela={encontro.config.senhaTela}
-          senhaCoordenadorEquipe={encontro.config.senhaCoordenadorEquipe}
-          senhaDirigente={encontro.config.senhaDirigente}
-          onSalvarConfig={onSalvarConfig}
-          cores={cores}
-        />
-      )}
+      <style>{`
+        .ejc-layout-cadastro { display: block; }
+        .ejc-sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+        .ejc-sidebar {
+          position: fixed; top: 0; left: 0; bottom: 0; width: 250px; max-width: 80vw;
+          z-index: 41; padding: 16px 0; box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+          overflow-y: auto; transform: translateX(-100%); transition: transform 0.2s ease;
+        }
+        .ejc-sidebar--aberta { transform: translateX(0); }
+        @media (min-width: 860px) {
+          .ejc-btn-hamburguer { display: none; }
+          .ejc-sidebar-overlay { display: none; }
+          .ejc-layout-cadastro { display: flex; align-items: flex-start; }
+          .ejc-sidebar {
+            position: sticky; top: 0; transform: none; box-shadow: none;
+            width: 240px; flex: 0 0 240px; height: 100vh; border-right: 1px solid rgba(212,175,55,0.25);
+          }
+          .ejc-conteudo-cadastro { flex: 1 1 auto; max-width: 1100px !important; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -2370,7 +2364,8 @@ function TarefaEquipeInline({ tarefa, onSalvar, onExcluir }) {
 // ============================================================================
 const CAMPOS_SERVO = [
   { key: 'nome', label: 'Nome', tipo: 'text' },
-  { key: 'equipe', label: 'Equipe atual', tipo: 'text' },
+  { key: 'equipe', label: 'Equipe atual', tipo: 'equipeSelect' },
+  { key: 'coordenouEquipeAtual', label: 'Foi coordenador(a) desta equipe?', tipo: 'checkbox' },
   { key: 'equipesAnteriores', label: 'Equipes em que já atuou (separadas por vírgula)', tipo: 'text' },
   { key: 'contato', label: 'Contato', tipo: 'text' },
   { key: 'restricoes', label: 'Restrições', tipo: 'text' },
@@ -2402,7 +2397,7 @@ function valoresVazios(campos) {
   return v;
 }
 
-function AbaCadastroPessoas({ titulo, pessoas, campos, onSalvar, onExcluir, cores }) {
+function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcluir, cores }) {
   const [form, setForm] = useState(valoresVazios(campos));
   const [editandoId, setEditandoId] = useState(null);
 
@@ -2424,7 +2419,6 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, onSalvar, onExcluir, core
       {pessoas.map((p) => (
         <div key={p.id} onClick={() => editar(p)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
           <span style={{ flex: 1 }}>{p.nome}</span>
-          <span style={{ fontSize: 19.5, opacity: 0.6 }}>{p.equipe || ''}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onExcluir(p.id); }}
             style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
@@ -2440,6 +2434,13 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, onSalvar, onExcluir, core
             <label style={estilos.label}>{c.label}</label>
             {c.tipo === 'checkbox' ? (
               <input type="checkbox" checked={!!form[c.key]} onChange={(e) => setForm({ ...form, [c.key]: e.target.checked })} style={{ marginBottom: 12 }} />
+            ) : c.tipo === 'equipeSelect' ? (
+              <select value={form[c.key]} onChange={(e) => setForm({ ...form, [c.key]: e.target.value })} style={estilos.input}>
+                <option value="">Nenhuma / a definir</option>
+                {(equipes || []).map((eq) => (
+                  <option key={eq.id} value={eq.nome}>{eq.nome}</option>
+                ))}
+              </select>
             ) : (
               <input
                 type={c.tipo}
