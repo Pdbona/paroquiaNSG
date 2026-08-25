@@ -1934,6 +1934,84 @@ function MarcaDaguaImagem({ opacidade = 0.12 }) {
   );
 }
 
+// Capa impressa (primeira página) de qualquer impressão feita a partir do
+// painel Ao Vivo — imagem de Nossa Senhora de Guadalupe, nome do evento e o
+// dia em destaque (o resto do conteúdo entra na página seguinte, forçado
+// pelo page-break abaixo).
+function CapaImpressao({ branding, dia }) {
+  return (
+    <div style={{ textAlign: 'center', paddingTop: 60, breakAfter: 'page', pageBreakAfter: 'always' }}>
+      <img src={imagemSantaUrl} alt="Nossa Senhora de Guadalupe" style={{ width: 200, filter: 'brightness(1.05)' }} />
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, margin: '18px 0 4px' }}>{branding?.nomeEvento}</h1>
+      <p style={{ fontSize: 19, margin: 0 }}>Paróquia {branding?.nomeParoquia}</p>
+      <div
+        style={{
+          marginTop: 48,
+          display: 'inline-block',
+          padding: '14px 36px',
+          border: `3px solid ${CORES.dourado}`,
+          borderRadius: 12,
+        }}
+      >
+        <span style={{ fontSize: 28, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+          {DIAS_LABEL[dia]}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Faixa com o dia em destaque, repetida no topo de cada seção impressa
+// (depois da capa) — pedido explícito pra não deixar dúvida de qual dia é
+// aquela página, especialmente quando só uma escala é impressa em separado.
+function FaixaDiaImpressao({ dia }) {
+  return (
+    <div
+      style={{
+        background: CORES.verdeEscuro,
+        color: '#fff',
+        padding: '8px 16px',
+        borderRadius: 6,
+        textAlign: 'center',
+        fontWeight: 700,
+        fontSize: 20,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 14,
+      }}
+    >
+      {DIAS_LABEL[dia]}
+    </div>
+  );
+}
+
+// Tabela Hora/Equipe usada nas impressões em separado (Vigília, Capela
+// Mariana, Almoço/Jantar) — mesmas colunas nos três casos, com a coluna de
+// Refeição só aparecendo quando faz sentido (Almoço/Jantar).
+function TabelaImpressaoHoraEquipe({ itens, comRefeicao }) {
+  if (itens.length === 0) return <p>Nenhum plantão cadastrado pra este dia.</p>;
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
+      <thead>
+        <tr>
+          <th style={estilos.thImpressao}>Hora</th>
+          <th style={estilos.thImpressao}>Equipe</th>
+          {comRefeicao && <th style={estilos.thImpressao}>Refeição</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {itens.map((t) => (
+          <tr key={t.id}>
+            <td style={estilos.tdImpressao}>{t.hora}</td>
+            <td style={estilos.tdImpressao}>{t.equipeNome}</td>
+            {comRefeicao && <td style={estilos.tdImpressao}>{ORIGEM_INFO[t.origem]?.label || t.tarefa}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function PainelAoVivo(props) {
   const { perfil, encontro, horaAtual, cores, podeEditar, branding, equipeCoordenada } = props;
   const isCoordenadorEquipe = perfil === 'coordenadorEquipe';
@@ -1973,6 +2051,22 @@ function PainelAoVivo(props) {
   const [editando, setEditando] = useState(null);
   const [textoAviso, setTextoAviso] = useState('');
   const [simInput, setSimInput] = useState(props.horaSimulada || '');
+  // Qual conteúdo a área de impressão (.imprimir-area, mais abaixo) mostra —
+  // null/'padrao' é o que já existia (Encontrista + equipe(s) visível na
+  // tela); os demais são as impressões em separado do Coordenador Geral.
+  // Sempre a impressão de UM dia só (o selecionado), com a capa entrando
+  // antes via CapaImpressao.
+  const [modoImpressao, setModoImpressao] = useState(null);
+  const [equipeImpressao, setEquipeImpressao] = useState('');
+
+  function imprimirComo(modo) {
+    setModoImpressao(modo);
+    // dá um tick pro React re-renderizar a .imprimir-area com o conteúdo
+    // novo antes de abrir o diálogo de impressão do navegador.
+    setTimeout(() => window.print(), 50);
+  }
+
+  const capelaAplicavelHoje = tarefasDia.some((t) => t.origem === 'capela');
 
   return (
     <div>
@@ -1989,8 +2083,33 @@ function PainelAoVivo(props) {
             </button>
           ))}
         </div>
-        <button onClick={() => window.print()} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+        <button onClick={() => imprimirComo('padrao')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
       </div>
+
+      {isCoordenadorGeral && (
+        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
+          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir em separado — {DIAS_LABEL[diaSelecionado]}</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+            <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
+            <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
+            <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
+            <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <select
+              value={equipeImpressao}
+              onChange={(e) => setEquipeImpressao(e.target.value)}
+              style={{ ...estilos.input, marginBottom: 0, flex: 1 }}
+            >
+              <option value="">Escolha uma equipe…</option>
+              {encontro.equipes.map((eq) => (
+                <option key={eq.id} value={eq.nome}>{eq.nome}</option>
+              ))}
+            </select>
+            <button onClick={() => equipeImpressao && imprimirComo('equipe')} style={estilos.btnPequeno}>🖨️ Imprimir equipe</button>
+          </div>
+        </div>
+      )}
 
       {avisoMovimento && (
         <div style={{ ...estilos.bannerInline, background: CORES.terracota }}>
@@ -2132,32 +2251,41 @@ function PainelAoVivo(props) {
       )}
     </div>
 
-    {/* Área usada só na impressão (ver .imprimir-area em index.css) — o que
-        este perfil está vendo agora: cronograma do Encontristas do dia
-        selecionado e, se aplicável, a coluna de equipe(s) visível. */}
+    {/* Área usada só na impressão (ver .imprimir-area em index.css). Sempre
+        começa com a capa (CapaImpressao — imagem, evento e o dia em
+        destaque) e depois o conteúdo do modoImpressao escolhido: "padrao"
+        (ou nenhum ainda escolhido) é o que já existia — Encontrista + a
+        coluna de equipe(s) visível na tela — e os demais são as impressões
+        em separado do Coordenador Geral. Sempre um dia só, o selecionado. */}
     <div className="imprimir-area">
-      <h2 style={{ fontFamily: "'Playfair Display', serif" }}>{branding?.nomeEvento}</h2>
-      <p>Paróquia {branding?.nomeParoquia} — {DIAS_LABEL[diaSelecionado]}</p>
-      <h3>Cronograma — Encontristas</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8, marginBottom: 20 }}>
-        <thead>
-          <tr>
-            <th style={estilos.thImpressao}>Hora</th>
-            <th style={estilos.thImpressao}>Duração</th>
-            <th style={estilos.thImpressao}>Movimento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {itensDia.map((i) => (
-            <tr key={i.id}>
-              <td style={estilos.tdImpressao}>{i.hora}</td>
-              <td style={estilos.tdImpressao}>{i.duracaoMin}min</td>
-              <td style={estilos.tdImpressao}>{i.movimento}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {mostrarPainelEquipe && (
+      <CapaImpressao branding={branding} dia={diaSelecionado} />
+
+      {(!modoImpressao || modoImpressao === 'padrao' || modoImpressao === 'encontrista') && (
+        <>
+          <FaixaDiaImpressao dia={diaSelecionado} />
+          <h3>Cronograma — Encontristas</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8, marginBottom: 20 }}>
+            <thead>
+              <tr>
+                <th style={estilos.thImpressao}>Hora</th>
+                <th style={estilos.thImpressao}>Duração</th>
+                <th style={estilos.thImpressao}>Movimento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itensDia.map((i) => (
+                <tr key={i.id}>
+                  <td style={estilos.tdImpressao}>{i.hora}</td>
+                  <td style={estilos.tdImpressao}>{i.duracaoMin}min</td>
+                  <td style={estilos.tdImpressao}>{i.movimento}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {(!modoImpressao || modoImpressao === 'padrao') && mostrarPainelEquipe && (
         <>
           <h3>{isCoordenadorEquipe ? `Equipe ${equipeCoordenada}` : 'Tarefas de Equipe'}</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
@@ -2178,6 +2306,63 @@ function PainelAoVivo(props) {
               ))}
             </tbody>
           </table>
+        </>
+      )}
+
+      {modoImpressao === 'equipe' && equipeImpressao && (
+        <>
+          <FaixaDiaImpressao dia={diaSelecionado} />
+          <h3>Equipe {equipeImpressao}</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
+            <thead>
+              <tr>
+                <th style={estilos.thImpressao}>Hora</th>
+                <th style={estilos.thImpressao}>Tarefa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tarefasDia.filter((t) => t.equipeNome === equipeImpressao).map((t) => (
+                <tr key={t.id}>
+                  <td style={estilos.tdImpressao}>{t.hora}</td>
+                  <td style={estilos.tdImpressao}>{ORIGEM_INFO[t.origem] ? ORIGEM_INFO[t.origem].label : t.tarefa}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {tarefasDia.filter((t) => t.equipeNome === equipeImpressao).length === 0 && (
+            <p>Nenhuma tarefa cadastrada pra essa equipe neste dia.</p>
+          )}
+        </>
+      )}
+
+      {modoImpressao === 'vigilia' && (
+        <>
+          <FaixaDiaImpressao dia={diaSelecionado} />
+          <h3>Escala de Vigília</h3>
+          <TabelaImpressaoHoraEquipe itens={tarefasDia.filter((t) => t.origem === 'vigilia')} />
+        </>
+      )}
+
+      {modoImpressao === 'capela' && (
+        <>
+          <FaixaDiaImpressao dia={diaSelecionado} />
+          <h3>Capela Mariana</h3>
+          {capelaAplicavelHoje ? (
+            <TabelaImpressaoHoraEquipe itens={tarefasDia.filter((t) => t.origem === 'capela')} />
+          ) : (
+            <p>A escala da Capela Mariana só se aplica ao Sábado e ao Domingo.</p>
+          )}
+        </>
+      )}
+
+      {modoImpressao === 'refeicoes' && (
+        <>
+          <FaixaDiaImpressao dia={diaSelecionado} />
+          <h3>Almoço / Jantar</h3>
+          <TabelaImpressaoHoraEquipe
+            itens={tarefasDia.filter((t) => t.origem === 'almoco' || t.origem === 'jantar')}
+            comRefeicao
+          />
         </>
       )}
     </div>
