@@ -640,6 +640,29 @@ function classificarTarefasEquipe(tarefasResolvidas, minAgora) {
   return { atuais, proximas };
 }
 
+// Um momento é "de movimentação" (troca de sala/ambiente) quando o texto
+// menciona isso — ganha uma cor de fundo própria em toda tela que lista
+// momentos, mesmo antes de chegar a vez dele, pra já avisar visualmente que
+// vem um deslocamento.
+function ehMomentoMovimentacao(texto) {
+  return /movimenta/i.test(texto || '');
+}
+
+// Agrupa tarefas de equipe por horário de início — cada grupo vira uma
+// "linha do tempo" com um cartão por equipe que tem ação naquele horário,
+// pra rolar na horizontal (ver FaixaHorarioEquipes) em vez de uma lista
+// vertical longa misturando todas as equipes juntas.
+function agruparTarefasPorHora(tarefas) {
+  const porHora = new Map();
+  tarefas.forEach((t) => {
+    if (!porHora.has(t.hora)) porHora.set(t.hora, []);
+    porHora.get(t.hora).push(t);
+  });
+  return [...porHora.entries()]
+    .map(([hora, itens]) => ({ hora, itens }))
+    .sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
+}
+
 // ============================================================================
 // Componente principal
 // ============================================================================
@@ -1131,6 +1154,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
     [encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaAtivo]
   );
   const { atuais: tarefasAtuais, proximas: tarefasProximas } = classificarTarefasEquipe(tarefasDia, minAgora);
+  const gruposProximasTelao = useMemo(() => agruparTarefasPorHora(tarefasProximas), [tarefasProximas]);
   const momentoEncontristasAtivo = tarefasAtuais.find((t) => ehEquipeEncontristas(t.equipeNome));
 
   return (
@@ -1178,16 +1202,11 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTema }) {
           {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
             <p style={{ opacity: 0.5, fontSize: 22.8 }}>Nenhuma tarefa de equipe cadastrada pra este momento.</p>
           )}
-          {tarefasAtuais.map((t) => (
-            <LinhaTarefaEquipeTelao key={t.id} tarefa={t} destaque />
-          ))}
-          {tarefasProximas.length > 0 && (
-            <div style={{ marginTop: tarefasAtuais.length ? 18 : 0, opacity: 0.6, fontSize: 19.5, textTransform: 'uppercase', letterSpacing: 1 }}>
-              A seguir
-            </div>
+          {tarefasAtuais.length > 0 && (
+            <FaixaHorarioEquipes rotulo="Agora" itens={tarefasAtuais} destaque cores={cores} grande />
           )}
-          {tarefasProximas.map((t) => (
-            <LinhaTarefaEquipeTelao key={t.id} tarefa={t} destaque={false} />
+          {gruposProximasTelao.map((g, i) => (
+            <FaixaHorarioEquipes key={g.hora} rotulo={g.hora} itens={g.itens} destaque={i === 0 && tarefasAtuais.length === 0} cores={cores} grande />
           ))}
         </div>
       </div>
@@ -1243,7 +1262,7 @@ function detectarAvisoMovimentoAtivo(itensDia, minAgora) {
   return itensDia.find((i) => {
     const inicio = horaParaMin(i.hora);
     const fim = inicio + i.duracaoMin;
-    return minAgora >= inicio && minAgora < fim && /movimenta/i.test(i.movimento);
+    return minAgora >= inicio && minAgora < fim && ehMomentoMovimentacao(i.movimento);
   }) || null;
 }
 
@@ -1251,8 +1270,16 @@ function detectarAvisoMovimentoAtivo(itensDia, minAgora) {
 // projetor, visto de longe, não celular na mão.
 function MomentoDestaque({ item, tamanho, rotulo }) {
   const tamanhos = { grande: 84, medio: 55 };
+  const movimentacao = ehMomentoMovimentacao(item.movimento);
   return (
-    <div style={{ margin: tamanho === 'grande' ? '18px 0' : '10px 0' }}>
+    <div
+      style={{
+        margin: tamanho === 'grande' ? '18px 0' : '10px 0',
+        padding: movimentacao ? '10px 16px' : 0,
+        borderRadius: movimentacao ? 10 : 0,
+        background: movimentacao ? `${CORES.terracota}22` : 'transparent',
+      }}
+    >
       {rotulo && <div style={{ fontSize: 26, letterSpacing: 1, opacity: 0.6, textTransform: 'uppercase' }}>{rotulo}</div>}
       <div style={{ fontSize: tamanhos[tamanho], fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{item.hora}</div>
       <div style={{ fontSize: tamanho === 'grande' ? 46 : 36 }}>{item.movimento}</div>
@@ -1261,10 +1288,19 @@ function MomentoDestaque({ item, tamanho, rotulo }) {
 }
 
 function LinhaMomentoPequena({ item }) {
+  const movimentacao = ehMomentoMovimentacao(item.movimento);
   return (
-    <div style={{ display: 'flex', gap: 14, padding: '6px 0', fontSize: 30.9 }}>
-      <span style={{ opacity: 0.6, width: 62 }}>{item.hora}</span>
-      <span>{item.movimento}</span>
+    <div
+      style={{
+        display: 'flex',
+        gap: 14,
+        padding: '6px 10px',
+        borderRadius: 6,
+        background: movimentacao ? `${CORES.terracota}22` : 'transparent',
+      }}
+    >
+      <span style={{ opacity: 0.6, width: 62, fontSize: 30.9 }}>{item.hora}</span>
+      <span style={{ fontSize: 30.9 }}>{item.movimento}</span>
     </div>
   );
 }
@@ -1274,31 +1310,78 @@ function LinhaMomentoPequena({ item }) {
 // já que equipes diferentes fazem coisas diferentes no mesmo instante).
 // A equipe "Encontristas" (vinda da Capela Mariana) ganha estilo próprio,
 // pra chamar atenção — não é uma tarefa de servo, é um momento especial.
-function LinhaTarefaEquipeTelao({ tarefa, destaque }) {
+// Lista com "ver mais" — mostra só os N primeiros itens e revela o resto sob
+// clique, pra não lotar a tela em cronogramas longos. Sem uso em telas sem
+// interação (Telão), que preferem rolagem vertical natural.
+function ListaComVerMais({ itens, max = 5, renderItem, corBtn }) {
+  const [expandido, setExpandido] = useState(false);
+  const visiveis = expandido ? itens : itens.slice(0, max);
+  const restantes = itens.length - visiveis.length;
+  return (
+    <>
+      {visiveis.map(renderItem)}
+      {restantes > 0 && (
+        <button
+          onClick={() => setExpandido(true)}
+          style={{ background: 'none', border: 'none', color: corBtn || CORES.verde, cursor: 'pointer', fontSize: 21, padding: '6px 0', textAlign: 'left' }}
+        >
+          Ver mais {restantes} →
+        </button>
+      )}
+    </>
+  );
+}
+
+// Uma "linha do tempo": horário + cartões de equipe que agem naquele
+// horário, um do lado do outro com rolagem horizontal própria — o
+// cronograma dos encontristas ao lado fica parado, só essa faixa rola.
+function FaixaHorarioEquipes({ rotulo, itens, destaque, cores, grande }) {
+  return (
+    <div style={{ marginBottom: grande ? 18 : 10 }}>
+      <div
+        style={{
+          fontWeight: 700,
+          fontFamily: destaque ? "'Playfair Display', serif" : 'inherit',
+          fontSize: grande ? (destaque ? 30 : 22) : destaque ? 20 : 16,
+          opacity: destaque ? 1 : 0.65,
+          marginBottom: 4,
+          color: destaque ? CORES.dourado : 'inherit',
+        }}
+      >
+        {rotulo}
+      </div>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+        {itens.map((t) => (
+          <CaixaTarefaEquipe key={t.id} tarefa={t} destaque={destaque} cores={cores} grande={grande} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CaixaTarefaEquipe({ tarefa, destaque, cores, grande }) {
   const especial = ehEquipeEncontristas(tarefa.equipeNome);
   const info = ORIGEM_INFO[tarefa.origem];
   const corSelo = especial ? CORES.dourado : info?.cor;
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: '78px 1fr 2fr',
-        gap: 12,
-        padding: '11px 12px',
-        fontSize: destaque ? 37 : 29,
-        borderRadius: 6,
-        marginBottom: 5,
-        borderLeft: `4px solid ${corSelo ? `${corSelo}${destaque || especial ? '' : '77'}` : 'transparent'}`,
-        background: especial ? `${CORES.dourado}30` : destaque ? `${CORES.dourado}18` : 'transparent',
-        opacity: destaque ? 1 : 0.72,
+        flex: '0 0 auto',
+        minWidth: grande ? 190 : 148,
+        maxWidth: grande ? 260 : 200,
+        padding: grande ? '10px 12px' : '8px 10px',
+        borderRadius: 8,
+        borderLeft: `3px solid ${corSelo ? `${corSelo}${destaque || especial ? '' : '77'}` : 'transparent'}`,
+        background: especial ? `${CORES.dourado}30` : destaque ? `${CORES.dourado}18` : cores.cartao,
+        fontSize: grande ? (destaque ? 24 : 19) : destaque ? 20 : 16,
+        opacity: destaque || especial ? 1 : 0.78,
       }}
     >
-      <span style={{ opacity: 0.7 }}>{tarefa.hora}</span>
-      <span style={{ fontWeight: destaque ? 700 : 500 }}>
+      <strong>
         {especial ? '✨ ' : info ? `${info.icone} ` : ''}
         {tarefa.equipeNome}
-      </span>
-      <span>{info ? info.label : tarefa.tarefa}</span>
+      </strong>
+      <div style={{ opacity: 0.85, marginTop: 2 }}>{info ? info.label : tarefa.tarefa}</div>
     </div>
   );
 }
@@ -1781,16 +1864,34 @@ function MarcaDaguaImagem({ opacidade = 0.12 }) {
   );
 }
 
+// Chave local (por aparelho) que lembra qual equipe o Coordenador de Equipe
+// escolheu coordenar — a senha é compartilhada/anônima, então não dá pra
+// saber isso pelo login; perguntamos uma vez e guardamos no aparelho.
+const CHAVE_EQUIPE_COORDENADA = 'ejc_equipeCoordenador';
+
 function PainelAoVivo(props) {
   const { perfil, encontro, horaAtual, cores, podeEditar } = props;
   const mostrarPainelServos =
     perfil === 'servo' || perfil === 'coordenadorGeral' || perfil === 'coordenadorEquipe' || perfil === 'dirigente';
+  const isCoordenadorEquipe = perfil === 'coordenadorEquipe';
+
+  const [equipeCoordenada, setEquipeCoordenada] = useState(() => {
+    try { return localStorage.getItem(CHAVE_EQUIPE_COORDENADA) || ''; } catch { return ''; }
+  });
+  function escolherEquipeCoordenada(nome) {
+    try { localStorage.setItem(CHAVE_EQUIPE_COORDENADA, nome); } catch {}
+    setEquipeCoordenada(nome);
+  }
+  function trocarEquipeCoordenada() {
+    try { localStorage.removeItem(CHAVE_EQUIPE_COORDENADA); } catch {}
+    setEquipeCoordenada('');
+  }
 
   const diaAtivo = encontro.cronograma.some((i) => i.dia === horaAtual.dia) ? horaAtual.dia : encontro.cronograma[0]?.dia;
   const [diaSelecionado, setDiaSelecionado] = useState(diaAtivo);
   const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => a.ordem - b.ordem);
   const minAgora = horaAtual.dia === diaSelecionado ? horaAtual.minutos : -1;
-  const { atual } = classificarMomentos(itensDia, minAgora);
+  const { atual, proximo, demais } = classificarMomentos(itensDia, minAgora);
   const avisosVisiveis = mostrarPainelServos ? encontro.avisos.filter((a) => a.expiraEm > Date.now()) : [];
   const avisoMovimento = mostrarPainelServos ? detectarAvisoMovimentoAtivo(itensDia, minAgora) : null;
 
@@ -1798,7 +1899,12 @@ function PainelAoVivo(props) {
     () => tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaSelecionado),
     [encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaSelecionado]
   );
-  const { atuais: tarefasAtuais, proximas: tarefasProximas } = classificarTarefasEquipe(tarefasDia, minAgora);
+  // Coordenador de Equipe só vê a própria equipe — os demais perfis (Servo,
+  // Coordenador Geral, Dirigente) veem todas.
+  const tarefasDiaVisivel =
+    isCoordenadorEquipe && equipeCoordenada ? tarefasDia.filter((t) => t.equipeNome === equipeCoordenada) : tarefasDia;
+  const { atuais: tarefasAtuais, proximas: tarefasProximas } = classificarTarefasEquipe(tarefasDiaVisivel, minAgora);
+  const gruposProximas = useMemo(() => agruparTarefasPorHora(tarefasProximas), [tarefasProximas]);
   const momentoEncontristasAtivo = mostrarPainelServos && tarefasAtuais.find((t) => ehEquipeEncontristas(t.equipeNome));
 
   const [editando, setEditando] = useState(null);
@@ -1881,38 +1987,82 @@ function PainelAoVivo(props) {
         <div>
           <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Encontristas</h3>
           <div>
-            {itensDia.map((item) => (
-              <LinhaMomentoCelular
-                key={item.id}
-                item={item}
-                destaque={atual && atual.id === item.id}
-                cores={cores}
-                editavel={podeEditar}
-                onEditar={() => setEditando(item)}
-              />
-            ))}
+            {atual && (
+              <LinhaMomentoCelular item={atual} nivel="atual" cores={cores} editavel={podeEditar} onEditar={() => setEditando(atual)} />
+            )}
+            {proximo && (
+              <LinhaMomentoCelular item={proximo} nivel="proximo" cores={cores} editavel={podeEditar} onEditar={() => setEditando(proximo)} />
+            )}
+            <ListaComVerMais
+              itens={demais}
+              max={5}
+              renderItem={(item) => (
+                <LinhaMomentoCelular key={item.id} item={item} cores={cores} editavel={podeEditar} onEditar={() => setEditando(item)} />
+              )}
+            />
           </div>
         </div>
 
         {mostrarPainelServos && (
           <div>
             <h3 style={{ marginTop: 20, marginBottom: 8 }}>Cronograma — Servos</h3>
-            {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
-              <p style={{ fontSize: 21.1, opacity: 0.6 }}>Nenhuma tarefa de equipe cadastrada pra este dia ainda.</p>
+
+            {isCoordenadorEquipe && !equipeCoordenada && (
+              <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
+                <label style={{ ...estilos.label, marginTop: 0 }}>Qual equipe você coordena?</label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => e.target.value && escolherEquipeCoordenada(e.target.value)}
+                  style={estilos.input}
+                >
+                  <option value="">Selecione…</option>
+                  {encontro.equipes.map((eq) => (
+                    <option key={eq.id} value={eq.nome}>{eq.nome}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: 16.3, opacity: 0.6, margin: 0 }}>Escolha uma vez só — fica salvo neste aparelho.</p>
+              </div>
             )}
-            <div>
-              {tarefasAtuais.map((t) => (
-                <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
-              ))}
-              {tarefasProximas.length > 0 && (
-                <div style={{ marginTop: tarefasAtuais.length ? 10 : 0, opacity: 0.55, fontSize: 18.7, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  A seguir
-                </div>
-              )}
-              {tarefasProximas.map((t) => (
-                <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />
-              ))}
-            </div>
+
+            {isCoordenadorEquipe && equipeCoordenada && (
+              <button onClick={trocarEquipeCoordenada} style={{ ...estilos.btnLink, textAlign: 'left', marginBottom: 8 }}>
+                Coordenando: <strong>{equipeCoordenada}</strong> · trocar
+              </button>
+            )}
+
+            {(!isCoordenadorEquipe || equipeCoordenada) && (
+              <>
+                {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
+                  <p style={{ fontSize: 21.1, opacity: 0.6 }}>Nenhuma tarefa cadastrada pra este dia ainda.</p>
+                )}
+                {isCoordenadorEquipe ? (
+                  // Uma equipe só — lista cronológica simples, sem agrupar em caixas.
+                  <div>
+                    {tarefasAtuais.map((t) => (
+                      <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
+                    ))}
+                    <ListaComVerMais
+                      itens={tarefasProximas}
+                      max={5}
+                      renderItem={(t) => <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />}
+                    />
+                  </div>
+                ) : (
+                  // Todas as equipes — agrupadas por horário, cada horário com
+                  // suas equipes lado a lado (rolagem horizontal própria).
+                  <div>
+                    {tarefasAtuais.length > 0 && <FaixaHorarioEquipes rotulo="Agora" itens={tarefasAtuais} destaque cores={cores} />}
+                    <ListaComVerMais
+                      itens={gruposProximas}
+                      max={5}
+                      renderItem={(g, i) => (
+                        <FaixaHorarioEquipes key={g.hora} rotulo={g.hora} itens={g.itens} destaque={i === 0 && tarefasAtuais.length === 0} cores={cores} />
+                      )}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1931,24 +2081,39 @@ function PainelAoVivo(props) {
   );
 }
 
-function LinhaMomentoCelular({ item, destaque, cores, editavel, onEditar }) {
+// nivel: 'atual' (bem destacado) | 'proximo' (destacado, menor) | undefined
+// (linha compacta normal). Hora e duração ficam numa linha própria, acima
+// do movimento — texto longo (ex: "Chegada dos encontristas (acolhida)")
+// quebra em várias linhas sem espremer ou desalinhar hora/duração.
+function LinhaMomentoCelular({ item, nivel, cores, editavel, onEditar }) {
+  const movimentacao = ehMomentoMovimentacao(item.movimento);
+  const destaque = nivel === 'atual' || nivel === 'proximo';
+  const fundo = nivel === 'atual'
+    ? `${CORES.dourado}38`
+    : nivel === 'proximo'
+    ? `${CORES.dourado}1c`
+    : movimentacao
+    ? `${CORES.terracota}1c`
+    : cores.cartao;
+  const fontHora = nivel === 'atual' ? 34 : nivel === 'proximo' ? 26 : 20;
+  const fontMovimento = nivel === 'atual' ? 24 : nivel === 'proximo' ? 21 : 18;
   return (
     <div
       onClick={editavel ? onEditar : undefined}
       style={{
-        display: 'flex',
-        gap: 12,
-        padding: '10px 12px',
+        padding: nivel === 'atual' ? '14px 16px' : '10px 12px',
         marginBottom: 6,
         borderRadius: 8,
-        background: destaque ? `${CORES.dourado}33` : cores.cartao,
+        background: fundo,
         cursor: editavel ? 'pointer' : 'default',
-        alignItems: 'center',
       }}
     >
-      <span style={{ fontWeight: 600, width: 52 }}>{item.hora}</span>
-      <span style={{ flex: 1 }}>{item.movimento}</span>
-      <span style={{ fontSize: 19.5, opacity: 0.6 }}>{item.duracaoMin}min</span>
+      {nivel === 'proximo' && <div style={{ fontSize: 15, letterSpacing: 1, opacity: 0.65, textTransform: 'uppercase', marginBottom: 2 }}>Próximo</div>}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span style={{ fontWeight: 700, fontSize: fontHora, color: destaque ? CORES.dourado : 'inherit' }}>{item.hora}</span>
+        <span style={{ fontSize: nivel ? 15 : 13.5, opacity: 0.6 }}>{item.duracaoMin}min</span>
+      </div>
+      <div style={{ fontSize: fontMovimento, marginTop: 2 }}>{item.movimento}</div>
     </div>
   );
 }
@@ -1962,21 +2127,19 @@ function LinhaTarefaEquipeCelular({ tarefa, destaque, cores }) {
   return (
     <div
       style={{
-        display: 'flex',
-        gap: 10,
         padding: '9px 12px',
         marginBottom: 6,
         borderRadius: 8,
-        alignItems: 'center',
         borderLeft: `3px solid ${corSelo ? `${corSelo}${destaque || especial ? '' : '77'}` : 'transparent'}`,
         background: especial ? `${CORES.dourado}33` : destaque ? `${CORES.dourado}22` : cores.cartao,
         opacity: destaque ? 1 : 0.75,
       }}
     >
-      <span style={{ opacity: 0.7, width: 48, fontSize: 21.1 }}>{tarefa.hora}</span>
-      <span style={{ flex: 1, fontSize: 21.9 }}>
-        <strong>{especial ? '✨ ' : info ? `${info.icone} ` : ''}{tarefa.equipeNome}</strong>: {info ? info.label : tarefa.tarefa}
-      </span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontWeight: 700, fontSize: destaque ? 24 : 19, color: destaque ? CORES.dourado : 'inherit' }}>{tarefa.hora}</span>
+        <strong style={{ fontSize: 19.5 }}>{especial ? '✨ ' : info ? `${info.icone} ` : ''}{tarefa.equipeNome}</strong>
+      </div>
+      <div style={{ fontSize: 18, marginTop: 2 }}>{info ? info.label : tarefa.tarefa}</div>
     </div>
   );
 }
