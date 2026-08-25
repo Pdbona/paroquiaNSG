@@ -1389,20 +1389,20 @@ function CaixaTarefaEquipe({ tarefa, destaque, cores, grande }) {
 // (secaoAtiva) que a área de conteúdo sabe renderizar diretamente, sem mais
 // abas horizontais aninhadas (essas cortavam/quebravam em telas estreitas).
 const MENU_LATERAL = [
-  { grupo: 'Usuários', icone: '👤', itens: [
+  { grupo: 'Cadastros', itens: [
     { key: 'servos', label: 'Servos' },
+    { key: 'equipes', label: 'Equipes' },
     { key: 'coordenadoresGerais', label: 'Coordenadores Gerais' },
     { key: 'coordenadoresEquipe', label: 'Coordenadores de Equipe' },
     { key: 'dirigentes', label: 'Dirigentes' },
-    { key: 'acessos', label: 'Senha de Acesso' },
+    { key: 'encontristas', label: 'Encontristas' },
   ]},
-  { grupo: 'Encontro', icone: '📅', itens: [
+  { grupo: 'Encontro', itens: [
     { key: 'ejc', label: 'EJC (cronograma)' },
-    { key: 'equipes', label: 'Equipes' },
     { key: 'escalas', label: 'Escalas' },
   ]},
-  { grupo: 'Encontristas', icone: '🙋', itens: [
-    { key: 'encontristas', label: 'Encontristas' },
+  { grupo: 'Configurações', itens: [
+    { key: 'acessos', label: 'Senha de Acesso' },
   ]},
 ];
 
@@ -1458,7 +1458,7 @@ function ModoCelular(props) {
     <div style={{ minHeight: '100vh', background: cores.fundo, color: cores.texto, fontFamily: 'Roboto, sans-serif', position: 'relative' }}>
       {mostrarMarcaDagua && <MarcaDaguaImagem opacidade={0.06} />}
       <div style={estilos.headerCelular}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src={imagemSantaUrl} alt="" style={estilos.logoCantoImg} />
           <div>
             <div style={{ fontSize: 19.5, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>{rotuloPerfil}</div>
@@ -1494,24 +1494,26 @@ function ModoCelular(props) {
           <>
             {menuAberto && <div className="ejc-sidebar-overlay" onClick={() => setMenuAberto(false)} />}
             <div
-              className={`ejc-sidebar${menuAberto ? ' ejc-sidebar--aberta' : ''}`}
-              style={{ background: tema === 'dark' ? '#0F3A28' : '#fff', color: cores.texto }}
+              className={`ejc-sidebar ejc-sidebar--${tema}${menuAberto ? ' ejc-sidebar--aberta' : ''}`}
+              style={{ background: tema === 'dark' ? '#0F3A28' : '#FCFAF5', color: cores.texto }}
             >
-              <h4 style={{ margin: '4px 0 10px', padding: '0 14px', color: CORES.dourado, fontFamily: "'Playfair Display', serif" }}>Cadastro Geral</h4>
+              <div className="ejc-sidebar-titulo">Cadastro Geral</div>
               {MENU_LATERAL.map((grupo) => (
-                <div key={grupo.grupo} style={{ marginBottom: 10 }}>
-                  <div style={{ padding: '4px 14px', fontSize: 14, opacity: 0.55, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    {grupo.icone} {grupo.grupo}
-                  </div>
-                  {grupo.itens.map((item) => (
-                    <button
-                      key={item.key}
-                      onClick={() => escolherSecao(item.key)}
-                      style={{ ...estilos.itemDrawer, ...(secaoAtiva === item.key ? estilos.itemDrawerAtivo : {}) }}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+                <div key={grupo.grupo} className="ejc-sidebar-grupo">
+                  <div className="ejc-sidebar-grupo-label">{grupo.grupo}</div>
+                  {grupo.itens.map((item) => {
+                    const ativo = secaoAtiva === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => escolherSecao(item.key)}
+                        className={`ejc-item-sidebar${ativo ? ' ejc-item-sidebar--ativo' : ''}`}
+                        style={ativo ? { color: tema === 'dark' ? CORES.dourado : CORES.verde } : undefined}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>
@@ -1602,20 +1604,43 @@ function ModoCelular(props) {
 
       <style>{`
         .ejc-layout-cadastro { display: block; }
-        .ejc-sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+        .ejc-sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 40; }
         .ejc-sidebar {
-          position: fixed; top: 0; left: 0; bottom: 0; width: 250px; max-width: 80vw;
-          z-index: 41; padding: 16px 0; box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+          position: fixed; top: 0; left: 0; bottom: 0; width: 264px; max-width: 82vw;
+          z-index: 41; padding: 22px 0 16px; box-shadow: 4px 0 24px rgba(0,0,0,0.4);
           overflow-y: auto; transform: translateX(-100%); transition: transform 0.2s ease;
         }
         .ejc-sidebar--aberta { transform: translateX(0); }
+
+        .ejc-sidebar-titulo {
+          margin: 0 20px 16px; padding-bottom: 14px;
+          font-family: 'Playfair Display', serif; font-size: 21px; font-weight: 700;
+          color: ${CORES.dourado}; border-bottom: 1px solid rgba(212,175,55,0.3);
+        }
+        .ejc-sidebar-grupo { margin-bottom: 18px; }
+        .ejc-sidebar-grupo-label {
+          padding: 0 20px 8px; font-size: 12px; font-weight: 600; opacity: 0.5;
+          text-transform: uppercase; letter-spacing: 1.2px;
+        }
+        .ejc-item-sidebar {
+          display: block; width: 100%; text-align: left; background: transparent;
+          border: none; border-left: 3px solid transparent; color: inherit;
+          padding: 10px 20px; font-size: 16px; font-family: 'Roboto', sans-serif;
+          cursor: pointer; line-height: 1.3; transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .ejc-sidebar--dark .ejc-item-sidebar:hover { background: rgba(255,255,255,0.06); }
+        .ejc-sidebar--light .ejc-item-sidebar:hover { background: rgba(15,58,40,0.05); }
+        .ejc-sidebar--dark .ejc-item-sidebar--ativo { background: rgba(212,175,55,0.14); border-left-color: ${CORES.dourado}; font-weight: 700; }
+        .ejc-sidebar--light .ejc-item-sidebar--ativo { background: rgba(27,94,63,0.08); border-left-color: ${CORES.dourado}; font-weight: 700; }
+
         @media (min-width: 860px) {
           .ejc-btn-hamburguer { display: none; }
           .ejc-sidebar-overlay { display: none; }
           .ejc-layout-cadastro { display: flex; align-items: flex-start; }
           .ejc-sidebar {
             position: sticky; top: 0; transform: none; box-shadow: none;
-            width: 240px; flex: 0 0 240px; height: 100vh; border-right: 1px solid rgba(212,175,55,0.25);
+            width: 252px; flex: 0 0 252px; height: 100vh;
+            border-right: 1px solid ${tema === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,58,40,0.08)'};
           }
           .ejc-conteudo-cadastro { flex: 1 1 auto; max-width: 1100px !important; }
         }
@@ -3075,34 +3100,7 @@ const estilos = {
   linhaServoCelular: { display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 21.9 },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 },
   modalCaixa: { background: 'white', color: '#222', padding: 24, borderRadius: 10, maxWidth: 380, width: '100%' },
-  logoCantoImg: { width: 34, height: 40, objectFit: 'contain', flexShrink: 0 },
-  drawerOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 },
-  drawerPainel: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    width: 250,
-    maxWidth: '80vw',
-    zIndex: 41,
-    padding: 20,
-    boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
-    overflowY: 'auto',
-  },
-  itemDrawer: {
-    display: 'block',
-    width: '100%',
-    textAlign: 'left',
-    background: 'transparent',
-    border: 'none',
-    color: 'inherit',
-    padding: '12px 10px',
-    borderRadius: 8,
-    fontSize: 23.6,
-    cursor: 'pointer',
-    marginBottom: 4,
-  },
-  itemDrawerAtivo: { background: 'rgba(212,175,55,0.18)', fontWeight: 700, color: CORES.dourado },
+  logoCantoImg: { width: 48, height: 56, objectFit: 'contain', flexShrink: 0 },
   listaMembrosSugeridos: {
     maxHeight: 230,
     overflowY: 'auto',
