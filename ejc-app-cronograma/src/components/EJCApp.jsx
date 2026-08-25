@@ -2741,7 +2741,7 @@ function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onEditarCro
         ))}
         <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 16 }}>
           <h4 style={{ marginTop: 0 }}>+ Novo momento</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '90px 90px 1fr', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '128px 90px 1fr', gap: 8 }}>
             <input type="time" value={novo.hora} onChange={(e) => setNovo({ ...novo, hora: e.target.value })} style={estilos.input} />
             <input type="number" min={1} value={novo.duracaoMin} onChange={(e) => setNovo({ ...novo, duracaoMin: parseInt(e.target.value, 10) || 1 })} style={estilos.input} />
             <input type="text" placeholder="Nome do momento" value={novo.movimento} onChange={(e) => setNovo({ ...novo, movimento: e.target.value })} style={estilos.input} />
@@ -2824,7 +2824,7 @@ function LinhaCronogramaEditavel({ item, equipes, tarefas, cores, onSalvar, onEx
 
   return (
     <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '90px 90px 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '128px 90px 1fr', gap: 8 }}>
         <input type="time" value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} style={estilos.input} />
         <input type="number" min={1} value={form.duracaoMin} onChange={(e) => setForm({ ...form, duracaoMin: parseInt(e.target.value, 10) || 1 })} style={estilos.input} />
         <input type="text" value={form.movimento} onChange={(e) => setForm({ ...form, movimento: e.target.value })} style={estilos.input} />
@@ -3398,7 +3398,7 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
         <LinhaEscalaEditavel key={t.id} tarefa={t} equipes={equipes} onSalvar={onSalvar} onExcluir={() => onExcluir(t.id)} cores={cores} />
       ))}
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '128px 1fr', gap: 8 }}>
           <input type="time" value={novo.hora} onChange={(e) => setNovo({ ...novo, hora: e.target.value })} style={estilos.input} />
           <select value={novo.equipeNome} onChange={(e) => setNovo({ ...novo, equipeNome: e.target.value })} style={estilos.input}>
             <option value="">Equipe…</option>
@@ -3443,7 +3443,7 @@ function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }
         />
       ))}
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '128px 1fr', gap: 8 }}>
           <input type="time" value={novo.hora} onChange={(e) => setNovo({ ...novo, hora: e.target.value })} style={estilos.input} />
           <select value={novo.equipeNome} onChange={(e) => setNovo({ ...novo, equipeNome: e.target.value })} style={estilos.input}>
             <option value="">Equipe…</option>
@@ -3480,7 +3480,7 @@ function LinhaEscalaEditavel({ tarefa, equipes, onSalvar, onExcluir, cores, comD
 
   return (
     <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '128px 1fr', gap: 8 }}>
         <input type="time" value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} style={estilos.input} />
         <select value={form.equipeNome} onChange={(e) => setForm({ ...form, equipeNome: e.target.value })} style={estilos.input}>
           {equipes.map((eq) => (
