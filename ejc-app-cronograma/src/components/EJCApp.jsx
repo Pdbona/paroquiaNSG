@@ -913,44 +913,104 @@ function TelaLogin({ branding, erro, onEntrar, onInscrever }) {
   return (
     <div style={estilos.telaSeletor}>
       <div style={estilos.marcaDagua} />
-      <div style={estilos.seletorHalo}>
-        <div style={{ width: 140, height: 160, margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="ejc-tela-dividida">
+        {/* Esquerda (ou tela cheia no celular): logo compacta só no celular +
+            formulário de acesso + convite pra inscrição. */}
+        <div className="ejc-login-card" style={estilos.loginForm}>
+          <div className="ejc-logo-compact">
+            <div style={{ width: 116, height: 133, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={imagemSantaUrl}
+                alt={`Nossa Senhora — ${branding.nomeParoquia}`}
+                style={{ maxWidth: '100%', maxHeight: '100%', filter: 'brightness(1.1) contrast(1.05)' }}
+              />
+            </div>
+            <h1 style={{ ...estilos.seletorTituloInstitucional, color: CORES.verdeEscuro, fontSize: 40 }}>
+              Sistema de Gestão e Planejamento de Encontros com Cristo
+            </h1>
+            <p style={{ ...estilos.seletorSubtitulo, color: CORES.terracota, opacity: 0.85, marginBottom: 16 }}>Paróquia {branding.nomeParoquia}</p>
+          </div>
+
+          <h2 style={{ color: CORES.verdeEscuro, marginTop: 0 }}>Acesso ao Sistema</h2>
+          <label style={estilos.label}>Senha de Acesso</label>
+          <input
+            type="password"
+            placeholder="Digite a senha"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onEntrar(senha)}
+            style={estilos.input}
+            autoFocus
+          />
+          {erro && <div style={estilos.erro}>{erro}</div>}
+          <button onClick={() => onEntrar(senha)} style={estilos.btnEntrar}>
+            Entrar
+          </button>
+          <p style={{ marginTop: 20, marginBottom: 10, fontSize: 21.1, opacity: 0.75, textAlign: 'center', color: '#555' }}>
+            Ainda não é participante cadastrado?
+          </p>
+          <button onClick={onInscrever} style={estilos.btnInscricao}>
+            🙋 Inscreva-se para o {branding.nomeEvento} →
+          </button>
+        </div>
+
+        {/* Direita: só aparece em telas largas — a imagem grande da Santa
+            substitui a logo compacta do celular (ver @media abaixo). */}
+        <div className="ejc-painel-marca">
           <img
             src={imagemSantaUrl}
             alt={`Nossa Senhora — ${branding.nomeParoquia}`}
-            style={{ maxWidth: '100%', maxHeight: '100%', filter: 'brightness(1.1) contrast(1.05)' }}
+            className="ejc-painel-marca-img"
           />
+          <p className="ejc-painel-marca-legenda">
+            Sistema de Gestão e Planejamento de Encontros com Cristo
+            <br />
+            Paróquia {branding.nomeParoquia}
+          </p>
         </div>
-        <h1 style={estilos.seletorTituloInstitucional}>Sistema de Gestão e Planejamento de Encontros com Cristo</h1>
-        <p style={estilos.seletorSubtitulo}>Paróquia {branding.nomeParoquia}</p>
       </div>
-      <div style={estilos.loginForm}>
-        <h2 style={{ color: CORES.verdeEscuro, marginTop: 0 }}>Acesso ao Sistema</h2>
-        <label style={estilos.label}>Senha de Acesso</label>
-        <input
-          type="password"
-          placeholder="Digite a senha"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onEntrar(senha)}
-          style={estilos.input}
-          autoFocus
-        />
-        {erro && <div style={estilos.erro}>{erro}</div>}
-        <button onClick={() => onEntrar(senha)} style={estilos.btnEntrar}>
-          Entrar
-        </button>
-      </div>
-      <p style={{ position: 'relative', zIndex: 1, marginTop: 26, marginBottom: 10, fontSize: 21.1, opacity: 0.75, textAlign: 'center' }}>
-        Ainda não é participante cadastrado?
-      </p>
-      <button onClick={onInscrever} style={estilos.btnInscricao}>
-        🙋 Inscreva-se para o {branding.nomeEvento} →
-      </button>
       <style>{`
         @keyframes pulseGlowInscricao {
           0%, 100% { box-shadow: 0 4px 18px rgba(212,175,55,0.45); }
           50% { box-shadow: 0 4px 30px rgba(212,175,55,0.85); }
+        }
+        .ejc-tela-dividida { width: 100%; max-width: 460px; position: relative; z-index: 1; }
+        .ejc-painel-marca { display: none; }
+        @media (min-width: 860px) {
+          .ejc-tela-dividida {
+            display: flex;
+            align-items: stretch;
+            max-width: 1100px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+          }
+          .ejc-login-card { flex: 1 1 55%; max-width: none !important; border-radius: 0 !important; box-shadow: none !important; }
+          .ejc-logo-compact { display: none; }
+          .ejc-painel-marca {
+            display: flex;
+            flex: 0 0 45%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            padding: 32px;
+            background: linear-gradient(160deg, ${CORES.verdeEscuro}, #081C13);
+          }
+          .ejc-painel-marca-img {
+            width: 72%;
+            max-width: 340px;
+            height: auto;
+            filter: brightness(1.1) contrast(1.05) drop-shadow(0 12px 28px rgba(0,0,0,0.45));
+          }
+          .ejc-painel-marca-legenda {
+            color: ${CORES.dourado};
+            font-family: 'Playfair Display', serif;
+            text-align: center;
+            font-size: 22px;
+            line-height: 1.4;
+            margin: 0;
+          }
         }
       `}</style>
     </div>
