@@ -828,27 +828,40 @@ export default function EJCApp() {
     salvar({ ...encontro, config: { ...encontro.config, ...configParcial } });
   }
 
-  // Ao encerrar o encontro: todo encontrista com status "aprovado" vira um
-  // registro de Servo (base para o próximo encontro), e fica marcado como
-  // "formado" na lista de Encontristas pra não ser migrado de novo.
-  function handleFinalizarEncontro() {
+  // Ao encerrar o encontro: cada Encontrista "aprovado" que REALMENTE fez o
+  // encontro vira um registro de Servo (base para o próximo EJC, com
+  // recemFormado=true — prioridade pra ser chamado a servir, sem ser
+  // obrigatório, via sugerirServosParaEquipe) e fica "formado" na lista de
+  // Encontristas. Quem consta em idsNaoFizeram volta pra "pendente" — o
+  // cadastro fica em aberto pro próximo encontro em vez de virar Servo.
+  function handleFinalizarEncontro(idsNaoFizeram = []) {
     const aprovados = encontro.encontristas.filter((p) => p.status === 'aprovado');
     if (aprovados.length === 0) return;
-    const novosServos = aprovados.map((p) => ({
+    const fizeram = aprovados.filter((p) => !idsNaoFizeram.includes(p.id));
+    const novosServos = fizeram.map((p) => ({
       id: `servo-de-${p.id}`,
       nome: p.nome,
+      dataNascimento: p.dataNascimento || '',
+      cpf: p.cpf || '',
       equipe: '',
       equipesAnteriores: '',
       contato: p.contato || '',
+      cep: p.cep || '',
+      rua: p.rua || '',
+      numero: p.numero || '',
+      complemento: p.complemento || '',
+      bairro: p.bairro || '',
+      cidade: p.cidade || '',
       restricoes: p.restricoes || '',
       camisa: p.camisa || '',
       autorizado: false,
       recemFormado: true,
     }));
     const servosSemDuplicata = novosServos.filter((ns) => !encontro.servos.some((s) => s.id === ns.id));
-    const encontristasAtualizados = encontro.encontristas.map((p) =>
-      p.status === 'aprovado' ? { ...p, status: 'formado' } : p
-    );
+    const encontristasAtualizados = encontro.encontristas.map((p) => {
+      if (p.status !== 'aprovado') return p;
+      return idsNaoFizeram.includes(p.id) ? { ...p, status: 'pendente' } : { ...p, status: 'formado' };
+    });
     salvar({ ...encontro, servos: [...encontro.servos, ...servosSemDuplicata], encontristas: encontristasAtualizados });
   }
 
@@ -2436,12 +2449,195 @@ function TarefaEquipeInline({ tarefa, onSalvar, onExcluir }) {
 // ============================================================================
 // Aba Cadastro > Servos — CRUD direto (equipe monta a lista, sem inscrição)
 // ============================================================================
+// ---------------------------------------------------------------------------
+// Máscaras de formulário (CPF, telefone, data, CEP) — formatação progressiva
+// construída a partir só dos dígitos digitados, sem depender de nenhuma lib
+// externa. Reconstruir do zero a cada tecla (em vez de encadear regex sobre
+// o valor já mascarado) evita os bugs clássicos desse tipo de máscara.
+// ---------------------------------------------------------------------------
+function maskCPF(v) {
+  const d = (v || '').replace(/\D/g, '').slice(0, 11);
+  let out = d.slice(0, 3);
+  if (d.length > 3) out += '.' + d.slice(3, 6);
+  if (d.length > 6) out += '.' + d.slice(6, 9);
+  if (d.length > 9) out += '-' + d.slice(9, 11);
+  return out;
+}
+function maskData(v) {
+  const d = (v || '').replace(/\D/g, '').slice(0, 8);
+  let out = d.slice(0, 2);
+  if (d.length > 2) out += '/' + d.slice(2, 4);
+  if (d.length > 4) out += '/' + d.slice(4, 8);
+  return out;
+}
+function maskCEP(v) {
+  const d = (v || '').replace(/\D/g, '').slice(0, 8);
+  let out = d.slice(0, 5);
+  if (d.length > 5) out += '-' + d.slice(5, 8);
+  return out;
+}
+function maskTelefone(v) {
+  const d = (v || '').replace(/\D/g, '').slice(0, 11);
+  if (d.length === 0) return '';
+  if (d.length <= 2) return '(' + d;
+  if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+  if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+  return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+}
+
+// Idade calculada a partir da data de nascimento (DD/MM/AAAA) — não fica
+// desatualizada como um número de idade digitado à mão.
+function calcularIdade(dataBR) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dataBR || '');
+  if (!m) return null;
+  const nasc = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (Number.isNaN(nasc.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const aindaNaoFezAniversario =
+    hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
+  if (aindaNaoFezAniversario) idade--;
+  return idade;
+}
+
+// Busca endereço (rua/bairro/cidade) a partir do CEP via ViaCEP — serviço
+// público gratuito, sem necessidade de chave. Número e complemento nunca
+// vêm do CEP, por isso continuam sendo digitados à mão.
+async function buscarEnderecoPorCep(cepDigitos) {
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cepDigitos}/json/`);
+    const dados = await resp.json();
+    if (dados.erro) return null;
+    return { rua: dados.logradouro || '', bairro: dados.bairro || '', cidade: dados.localidade || '' };
+  } catch {
+    return null;
+  }
+}
+
+// Hook compartilhado pelos formulários de Servo e Encontrista — cuida do
+// campo CEP: aplica a máscara e, ao completar 8 dígitos, busca e preenche
+// rua/bairro/cidade automaticamente (o usuário ainda pode corrigir à mão).
+function useCepAutocomplete(setForm) {
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState('');
+
+  function onCepChange(valorDigitado) {
+    const cepMascarado = maskCEP(valorDigitado);
+    setForm((f) => ({ ...f, cep: cepMascarado }));
+    setErroCep('');
+    const digitos = cepMascarado.replace(/\D/g, '');
+    if (digitos.length === 8) {
+      setBuscandoCep(true);
+      buscarEnderecoPorCep(digitos).then((endereco) => {
+        setBuscandoCep(false);
+        if (endereco) {
+          setForm((f) => ({ ...f, rua: endereco.rua || f.rua, bairro: endereco.bairro || f.bairro, cidade: endereco.cidade || f.cidade }));
+        } else {
+          setErroCep('CEP não encontrado — preencha o endereço manualmente.');
+        }
+      });
+    }
+  }
+
+  return { buscandoCep, erroCep, onCepChange };
+}
+
+// Confere os campos marcados como obrigatórios (menos Complemento, que é o
+// único opcional dentro do bloco de endereço) — retorna a lista de rótulos
+// que faltam ou estão incompletos, pra mostrar num aviso só.
+function validarCampos(campos, form) {
+  const erros = [];
+  campos.forEach((c) => {
+    if (!c.obrigatorio || c.tipo === 'checkbox') return;
+    const v = form[c.key];
+    if (!v || !String(v).trim()) {
+      erros.push(c.label);
+      return;
+    }
+    const digitos = String(v).replace(/\D/g, '');
+    if (c.tipo === 'cpf' && digitos.length !== 11) erros.push(`${c.label} incompleto`);
+    if (c.tipo === 'telefone' && digitos.length < 10) erros.push(`${c.label} incompleto`);
+    if (c.tipo === 'data' && digitos.length !== 8) erros.push(`${c.label} incompleta`);
+    if (c.tipo === 'cep' && digitos.length !== 8) erros.push(`${c.label} incompleto`);
+  });
+  return erros;
+}
+
+// Campo de formulário genérico — usado tanto no cadastro de Servos quanto de
+// Encontristas, pra não duplicar a lógica de máscara/CEP/obrigatoriedade.
+function CampoDinamico({ campo: c, form, setForm, equipes, buscandoCep, erroCep, onCepChange }) {
+  const valor = form[c.key];
+  const rotulo = `${c.label}${c.obrigatorio ? ' *' : ''}`;
+
+  if (c.tipo === 'checkbox') {
+    return (
+      <div>
+        <label style={estilos.label}>{rotulo}</label>
+        <input type="checkbox" checked={!!valor} onChange={(e) => setForm({ ...form, [c.key]: e.target.checked })} style={{ marginBottom: 12 }} />
+      </div>
+    );
+  }
+  if (c.tipo === 'equipeSelect') {
+    return (
+      <div>
+        <label style={estilos.label}>{rotulo}</label>
+        <select value={valor} onChange={(e) => setForm({ ...form, [c.key]: e.target.value })} style={estilos.input}>
+          <option value="">Nenhuma / a definir</option>
+          {(equipes || []).map((eq) => (
+            <option key={eq.id} value={eq.nome}>{eq.nome}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+  if (c.tipo === 'cep') {
+    return (
+      <div>
+        <label style={estilos.label}>{rotulo}</label>
+        <input type="text" inputMode="numeric" placeholder="00000-000" value={valor} onChange={(e) => onCepChange(e.target.value)} style={estilos.input} />
+        {buscandoCep && <p style={{ fontSize: 14, opacity: 0.6, marginTop: -8 }}>Buscando endereço…</p>}
+        {!buscandoCep && erroCep && <p style={{ fontSize: 14, color: CORES.terracota, marginTop: -8 }}>{erroCep}</p>}
+      </div>
+    );
+  }
+  const MASCARAS = { cpf: maskCPF, telefone: maskTelefone, data: maskData };
+  const PLACEHOLDERS = { cpf: '000.000.000-00', telefone: '(00) 00000-0000', data: 'DD/MM/AAAA' };
+  const mascara = MASCARAS[c.tipo];
+  return (
+    <div>
+      <label style={estilos.label}>{rotulo}</label>
+      <input
+        type={c.tipo === 'number' ? 'number' : 'text'}
+        inputMode={mascara ? 'numeric' : undefined}
+        placeholder={PLACEHOLDERS[c.tipo]}
+        value={valor}
+        onChange={(e) => {
+          const v = mascara ? mascara(e.target.value) : c.tipo === 'number' ? parseInt(e.target.value, 10) || '' : e.target.value;
+          setForm({ ...form, [c.key]: v });
+        }}
+        style={estilos.input}
+      />
+    </div>
+  );
+}
+
+// Nome, data de nascimento, CPF, telefone e o bloco de endereço (CEP com
+// busca automática de rua/bairro/cidade, mais número e complemento
+// digitados à mão) são obrigatórios — só Complemento fica opcional.
 const CAMPOS_SERVO = [
-  { key: 'nome', label: 'Nome', tipo: 'text' },
+  { key: 'nome', label: 'Nome completo', tipo: 'text', obrigatorio: true },
+  { key: 'dataNascimento', label: 'Data de nascimento', tipo: 'data', obrigatorio: true },
+  { key: 'cpf', label: 'CPF', tipo: 'cpf', obrigatorio: true },
+  { key: 'contato', label: 'Telefone', tipo: 'telefone', obrigatorio: true },
+  { key: 'cep', label: 'CEP', tipo: 'cep', obrigatorio: true },
+  { key: 'rua', label: 'Rua', tipo: 'text', obrigatorio: true },
+  { key: 'numero', label: 'Número', tipo: 'text', obrigatorio: true },
+  { key: 'complemento', label: 'Complemento', tipo: 'text' },
+  { key: 'bairro', label: 'Bairro', tipo: 'text', obrigatorio: true },
+  { key: 'cidade', label: 'Cidade', tipo: 'text', obrigatorio: true },
   { key: 'equipe', label: 'Equipe atual', tipo: 'equipeSelect' },
   { key: 'coordenouEquipeAtual', label: 'Foi coordenador(a) desta equipe?', tipo: 'checkbox' },
   { key: 'equipesAnteriores', label: 'Equipes em que já atuou (separadas por vírgula)', tipo: 'text' },
-  { key: 'contato', label: 'Contato', tipo: 'text' },
   { key: 'restricoes', label: 'Restrições', tipo: 'text' },
   { key: 'camisa', label: 'Camisa', tipo: 'text' },
   { key: 'autorizado', label: 'Autorizado', tipo: 'checkbox' },
@@ -2474,9 +2670,16 @@ function valoresVazios(campos) {
 function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcluir, cores }) {
   const [form, setForm] = useState(valoresVazios(campos));
   const [editandoId, setEditandoId] = useState(null);
+  const [erro, setErro] = useState('');
+  const { buscandoCep, erroCep, onCepChange } = useCepAutocomplete(setForm);
 
   function salvarForm() {
-    if (!form.nome || !form.nome.trim()) return;
+    const erros = validarCampos(campos, form);
+    if (erros.length) {
+      setErro('Preencha corretamente: ' + erros.join(', '));
+      return;
+    }
+    setErro('');
     onSalvar({ id: editandoId || `p-${Date.now()}`, ...form });
     setForm(valoresVazios(campos));
     setEditandoId(null);
@@ -2485,6 +2688,7 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcl
   function editar(p) {
     setEditandoId(p.id);
     setForm(campos.reduce((acc, c) => ({ ...acc, [c.key]: p[c.key] ?? (c.tipo === 'checkbox' ? false : '') }), {}));
+    setErro('');
   }
 
   return (
@@ -2503,32 +2707,26 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcl
       ))}
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 16 }}>
         <h4 style={{ marginTop: 0 }}>{editandoId ? 'Editar' : '+ Novo(a)'} {titulo.slice(0, -1)}</h4>
-        {campos.map((c) => (
-          <div key={c.key}>
-            <label style={estilos.label}>{c.label}</label>
-            {c.tipo === 'checkbox' ? (
-              <input type="checkbox" checked={!!form[c.key]} onChange={(e) => setForm({ ...form, [c.key]: e.target.checked })} style={{ marginBottom: 12 }} />
-            ) : c.tipo === 'equipeSelect' ? (
-              <select value={form[c.key]} onChange={(e) => setForm({ ...form, [c.key]: e.target.value })} style={estilos.input}>
-                <option value="">Nenhuma / a definir</option>
-                {(equipes || []).map((eq) => (
-                  <option key={eq.id} value={eq.nome}>{eq.nome}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type={c.tipo}
-                value={form[c.key]}
-                onChange={(e) => setForm({ ...form, [c.key]: c.tipo === 'number' ? parseInt(e.target.value, 10) || '' : e.target.value })}
-                style={estilos.input}
-              />
-            )}
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <p style={{ fontSize: 14, opacity: 0.6, marginTop: -6 }}>* campo obrigatório</p>
+        <div className="ejc-form-grid">
+          {campos.map((c) => (
+            <CampoDinamico
+              key={c.key}
+              campo={c}
+              form={form}
+              setForm={setForm}
+              equipes={equipes}
+              buscandoCep={c.tipo === 'cep' && buscandoCep}
+              erroCep={c.tipo === 'cep' ? erroCep : ''}
+              onCepChange={onCepChange}
+            />
+          ))}
+        </div>
+        {erro && <div style={estilos.erro}>{erro}</div>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button onClick={salvarForm} style={estilos.btnEntrar}>{editandoId ? 'Salvar' : 'Adicionar'}</button>
           {editandoId && (
-            <button onClick={() => { setEditandoId(null); setForm(valoresVazios(campos)); }} style={{ ...estilos.btnEntrar, background: '#888' }}>
+            <button onClick={() => { setEditandoId(null); setForm(valoresVazios(campos)); setErro(''); }} style={{ ...estilos.btnEntrar, background: '#888' }}>
               Cancelar
             </button>
           )}
@@ -2870,11 +3068,18 @@ function LinhaEscalaEditavel({ tarefa, equipes, onSalvar, onExcluir, cores, comD
 // + cadastro manual direto pelo Dirigente
 // ============================================================================
 const CAMPOS_ENCONTRISTA = [
-  { key: 'nome', label: 'Nome', tipo: 'text' },
-  { key: 'idade', label: 'Idade', tipo: 'number' },
+  { key: 'nome', label: 'Nome completo', tipo: 'text', obrigatorio: true },
+  { key: 'dataNascimento', label: 'Data de nascimento', tipo: 'data', obrigatorio: true },
+  { key: 'cpf', label: 'CPF', tipo: 'cpf', obrigatorio: true },
+  { key: 'contato', label: 'Telefone', tipo: 'telefone', obrigatorio: true },
   { key: 'responsavel', label: 'Responsável (se menor)', tipo: 'text' },
+  { key: 'cep', label: 'CEP', tipo: 'cep', obrigatorio: true },
+  { key: 'rua', label: 'Rua', tipo: 'text', obrigatorio: true },
+  { key: 'numero', label: 'Número', tipo: 'text', obrigatorio: true },
+  { key: 'complemento', label: 'Complemento', tipo: 'text' },
+  { key: 'bairro', label: 'Bairro', tipo: 'text', obrigatorio: true },
+  { key: 'cidade', label: 'Cidade', tipo: 'text', obrigatorio: true },
   { key: 'sala', label: 'Sala', tipo: 'text' },
-  { key: 'contato', label: 'Contato', tipo: 'text' },
   { key: 'restricoes', label: 'Restrições', tipo: 'text' },
   { key: 'camisa', label: 'Camisa', tipo: 'text' },
 ];
@@ -2885,12 +3090,24 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
   const rejeitados = encontristas.filter((p) => p.status === 'rejeitado');
   const formados = encontristas.filter((p) => p.status === 'formado');
   const [confirmandoFinal, setConfirmandoFinal] = useState(false);
+  // Ao encerrar, o padrão é assumir que todo Confirmado FEZ o encontro —
+  // aqui só se marca a exceção (quem não fez), pra dar menos clique no caso
+  // comum. Quem for marcado aqui volta pro cadastro em aberto (status
+  // "pendente") em vez de virar Servo.
+  const [naoFizeram, setNaoFizeram] = useState([]);
 
   const [form, setForm] = useState(valoresVazios(CAMPOS_ENCONTRISTA));
   const [editandoId, setEditandoId] = useState(null);
+  const [erro, setErro] = useState('');
+  const { buscandoCep, erroCep, onCepChange } = useCepAutocomplete(setForm);
 
   function salvarForm() {
-    if (!form.nome || !form.nome.trim()) return;
+    const erros = validarCampos(CAMPOS_ENCONTRISTA, form);
+    if (erros.length) {
+      setErro('Preencha corretamente: ' + erros.join(', '));
+      return;
+    }
+    setErro('');
     const existente = encontristas.find((p) => p.id === editandoId);
     onSalvarPessoa({ id: editandoId || `p-${Date.now()}`, ...form, status: existente ? existente.status : 'aprovado' });
     setForm(valoresVazios(CAMPOS_ENCONTRISTA));
@@ -2900,38 +3117,62 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
   function editar(p) {
     setEditandoId(p.id);
     setForm(CAMPOS_ENCONTRISTA.reduce((acc, c) => ({ ...acc, [c.key]: p[c.key] ?? '' }), {}));
+    setErro('');
+  }
+
+  function alternarNaoFez(id) {
+    setNaoFizeram((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
+  }
+
+  function confirmarEncerramento() {
+    onFinalizarEncontro(naoFizeram);
+    setConfirmandoFinal(false);
+    setNaoFizeram([]);
   }
 
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Inscrições pendentes ({pendentes.length})</h3>
       {pendentes.length === 0 && <p style={{ fontSize: 17, opacity: 0.6 }}>Nenhuma inscrição pendente no momento.</p>}
-      {pendentes.map((p) => (
-        <div key={p.id} style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <strong>{p.nome}</strong>{p.idade ? ` · ${p.idade} anos` : ''}
-          <div style={{ fontSize: 15.8, opacity: 0.75, marginTop: 2 }}>
-            {p.contato && <span>{p.contato}</span>}
-            {p.responsavel && <span> · Responsável: {p.responsavel}</span>}
+      {pendentes.map((p) => {
+        const idade = calcularIdade(p.dataNascimento);
+        return (
+          <div key={p.id} style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
+            <strong>{p.nome}</strong>{idade !== null ? ` · ${idade} anos` : ''}
+            <div style={{ fontSize: 15.8, opacity: 0.75, marginTop: 2 }}>
+              {p.contato && <span>{p.contato}</span>}
+              {p.responsavel && <span> · Responsável: {p.responsavel}</span>}
+            </div>
+            {p.restricoes && <div style={{ fontSize: 15.8, opacity: 0.75 }}>Restrições: {p.restricoes}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button onClick={() => onSalvarPessoa({ ...p, status: 'aprovado' })} style={estilos.btnPequeno}>✓ Aprovar</button>
+              <button onClick={() => onSalvarPessoa({ ...p, status: 'rejeitado' })} style={{ ...estilos.btnPequeno, background: CORES.terracota }}>✗ Rejeitar</button>
+            </div>
           </div>
-          {p.restricoes && <div style={{ fontSize: 15.8, opacity: 0.75 }}>Restrições: {p.restricoes}</div>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button onClick={() => onSalvarPessoa({ ...p, status: 'aprovado' })} style={estilos.btnPequeno}>✓ Aprovar</button>
-            <button onClick={() => onSalvarPessoa({ ...p, status: 'rejeitado' })} style={{ ...estilos.btnPequeno, background: CORES.terracota }}>✗ Rejeitar</button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       <h3 style={{ marginTop: 24 }}>Confirmados ({aprovados.length})</h3>
       {aprovados.map((p) => (
-        <div key={p.id} onClick={() => editar(p)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
-          <span style={{ flex: 1 }}>{p.nome}</span>
+        <div key={p.id} style={{ ...estilos.linhaServoCelular, background: cores.cartao }}>
+          {confirmandoFinal && (
+            <input
+              type="checkbox"
+              checked={naoFizeram.includes(p.id)}
+              onChange={() => alternarNaoFez(p.id)}
+              title="Marcar se NÃO fez o encontro"
+            />
+          )}
+          <span onClick={() => !confirmandoFinal && editar(p)} style={{ flex: 1, cursor: confirmandoFinal ? 'default' : 'pointer' }}>{p.nome}</span>
           <span style={{ fontSize: 15.8, opacity: 0.6 }}>{p.sala || ''}</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onExcluirPessoa(p.id); }}
-            style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
-          >
-            ×
-          </button>
+          {!confirmandoFinal && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onExcluirPessoa(p.id); }}
+              style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
+            >
+              ×
+            </button>
+          )}
         </div>
       ))}
 
@@ -2944,17 +3185,18 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
           ) : (
             <div>
               <p style={{ fontSize: 17, marginTop: 0 }}>
-                Isso vai criar um registro de Servo pra cada um dos {aprovados.length} Encontristas confirmados
-                (base pra convocar no próximo EJC) e movê-los pra "Formados" aqui. Confirma?
+                Marque acima só quem <strong>não</strong> fez o encontro — o cadastro deles volta a ficar em
+                aberto (pendente) pro próximo EJC. Os demais {aprovados.length - naoFizeram.length} viram
+                Servo(s), com prioridade pra serem chamados a servir no próximo encontro (não é obrigatório).
               </p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => { onFinalizarEncontro(); setConfirmandoFinal(false); }}
+                  onClick={confirmarEncerramento}
                   style={{ ...estilos.btnPequeno, background: CORES.terracota }}
                 >
-                  Sim, encerrar
+                  Confirmar e encerrar
                 </button>
-                <button onClick={() => setConfirmandoFinal(false)} style={{ ...estilos.btnPequeno, background: '#888' }}>Cancelar</button>
+                <button onClick={() => { setConfirmandoFinal(false); setNaoFizeram([]); }} style={{ ...estilos.btnPequeno, background: '#888' }}>Cancelar</button>
               </div>
             </div>
           )}
@@ -2986,21 +3228,25 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
 
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 16 }}>
         <h4 style={{ marginTop: 0 }}>{editandoId ? 'Editar' : '+ Cadastrar'} Encontrista manualmente</h4>
-        {CAMPOS_ENCONTRISTA.map((c) => (
-          <div key={c.key}>
-            <label style={estilos.label}>{c.label}</label>
-            <input
-              type={c.tipo}
-              value={form[c.key]}
-              onChange={(e) => setForm({ ...form, [c.key]: c.tipo === 'number' ? parseInt(e.target.value, 10) || '' : e.target.value })}
-              style={estilos.input}
+        <p style={{ fontSize: 14, opacity: 0.6, marginTop: -6 }}>* campo obrigatório</p>
+        <div className="ejc-form-grid">
+          {CAMPOS_ENCONTRISTA.map((c) => (
+            <CampoDinamico
+              key={c.key}
+              campo={c}
+              form={form}
+              setForm={setForm}
+              buscandoCep={c.tipo === 'cep' && buscandoCep}
+              erroCep={c.tipo === 'cep' ? erroCep : ''}
+              onCepChange={onCepChange}
             />
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 8 }}>
+          ))}
+        </div>
+        {erro && <div style={estilos.erro}>{erro}</div>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button onClick={salvarForm} style={estilos.btnEntrar}>{editandoId ? 'Salvar' : 'Adicionar'}</button>
           {editandoId && (
-            <button onClick={() => { setEditandoId(null); setForm(valoresVazios(CAMPOS_ENCONTRISTA)); }} style={{ ...estilos.btnEntrar, background: '#888' }}>
+            <button onClick={() => { setEditandoId(null); setForm(valoresVazios(CAMPOS_ENCONTRISTA)); setErro(''); }} style={{ ...estilos.btnEntrar, background: '#888' }}>
               Cancelar
             </button>
           )}

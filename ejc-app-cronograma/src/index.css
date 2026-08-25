@@ -28,6 +28,15 @@ code {
   min-height: 100vh;
 }
 
+/* Formulários de cadastro (Servos, Encontristas) — divide os campos em
+   colunas responsivas pra aproveitar telas largas, empilhando num só no
+   celular. Ver CampoDinamico em EJCApp.jsx. */
+.ejc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 4px 16px;
+}
+
 /* Impressão do cronograma (Cadastro > Encontro > EJC) — ver .imprimir-area
    em EJCApp.jsx. Esconde tudo, exceto a área marcada, só na impressão. */
 .imprimir-area {
