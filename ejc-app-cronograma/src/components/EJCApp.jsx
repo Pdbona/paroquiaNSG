@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { db } from '../firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 // Import de verdade (não caminho cru) — o webpack processa e copia o arquivo
@@ -453,6 +453,10 @@ const CONFIG_PADRAO = {
     { servoId: null, nome: 'Coordenador Geral 2', senha: 'geral2' },
   ],
   dirigentesPorFuncao: FUNCOES_DIRIGENTE.reduce((acc, f) => ({ ...acc, [f]: [] }), {}),
+  // "Simular data/hora" é ferramenta de teste antes do evento — o Dirigente
+  // desliga isso pro Coordenador Geral quando o encontro já começou de
+  // verdade, pra ninguém mexer em hora simulada sem querer.
+  mostrarSimulacao: true,
 };
 
 const CRONOGRAMA_SEMENTE = construirCronogramaSemente();
@@ -1249,8 +1253,9 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
               ✨ Momento dos Encontristas na Capela Mariana — atenção especial
             </div>
           )}
+          {/* Ajuste na grade (atraso/adiantamento) — destacado em amarelo. */}
           {avisosVisiveis.filter((a) => a.tipo !== 3).map((a) => (
-            <div key={a.id} style={{ ...estilos.banner, background: CORES.verde, color: '#fff' }}>
+            <div key={a.id} style={{ ...estilos.banner, background: CORES.dourado, color: CORES.verdeEscuro }}>
               {a.mensagem}
             </div>
           ))}
@@ -1490,40 +1495,57 @@ function ModoCelular(props) {
 
   const tituloSecaoAtiva = MENU_LATERAL.flatMap((g) => g.itens).find((i) => i.key === secaoAtiva)?.label || '';
 
+  // Cabeçalho fixo — não pode sumir ao rolar a tela, em nenhum perfil. Mede
+  // a própria altura (em vez de um valor fixo no código) porque ela varia
+  // conforme o perfil (barra de abas só do Dirigente) e o estado (aviso de
+  // offline aparece/some) — PainelAoVivo usa essa altura pra grudar a faixa
+  // de dias/impressão logo abaixo, sem sobrepor nem deixar buraco.
+  const headerRef = useRef(null);
+  const [alturaHeader, setAlturaHeader] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => setAlturaHeader(entries[0].contentRect.height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', background: cores.fundo, color: cores.texto, fontFamily: 'Roboto, sans-serif', position: 'relative' }}>
       {mostrarMarcaDagua && <MarcaDaguaImagem opacidade={0.06} />}
-      <div style={estilos.headerCelular}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src={imagemSantaUrl} alt="" style={estilos.logoCantoImg} />
-          <div>
-            <div style={{ fontSize: 15.8, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>{rotuloPerfil}</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, color: CORES.dourado, lineHeight: 1.2 }}>{branding.nomeParoquia}</div>
+      <div ref={headerRef} className="no-print" style={{ position: 'sticky', top: 0, zIndex: 30, background: cores.fundo }}>
+        <div style={estilos.headerCelular}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img src={imagemSantaUrl} alt="" style={estilos.logoCantoImg} />
+            <div>
+              <div style={{ fontSize: 15.8, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>{rotuloPerfil}</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, color: CORES.dourado, lineHeight: 1.2 }}>{branding.nomeParoquia}</div>
+            </div>
           </div>
+          <button onClick={onSair} style={estilos.btnSairHeader}>Sair</button>
         </div>
-        <button onClick={onSair} style={estilos.btnSairHeader}>Sair</button>
+        <div style={{ height: 4, background: CORES.dourado }} />
+
+        {isDirigente && (
+          <div className="ejc-barra-topo" style={estilos.tabNav}>
+            <button className="ejc-btn-hamburguer" onClick={() => setMenuAberto((m) => !m)} style={{ ...estilos.tabBtn, fontSize: 18.4, fontWeight: 700 }}>
+              ☰ {abaTopo === 'cadastro' ? tituloSecaoAtiva : 'Cadastro Geral'}
+            </button>
+            <button
+              onClick={() => { setAbaTopo(abaTopo === 'encontro' ? 'cadastro' : 'encontro'); setMenuAberto(false); }}
+              style={{ ...estilos.tabBtn, ...(abaTopo === 'encontro' ? estilos.tabBtnAtiva : {}), fontSize: 18.4, fontWeight: 700, marginLeft: 'auto' }}
+            >
+              {abaTopo === 'encontro' ? '← Voltar ao Cadastro' : 'Ver Encontro (Ao Vivo) →'}
+            </button>
+          </div>
+        )}
+
+        {props.offline && (podeEditarAoVivo || isDirigente) && (
+          <div style={estilos.avisoOffline}>
+            ⚠️ Firebase ainda não configurado (ou sem conexão) — as alterações ficam salvas só neste aparelho, nesta sessão.
+          </div>
+        )}
       </div>
-      <div style={{ height: 4, background: CORES.dourado }} />
-
-      {isDirigente && (
-        <div className="ejc-barra-topo" style={estilos.tabNav}>
-          <button className="ejc-btn-hamburguer" onClick={() => setMenuAberto((m) => !m)} style={{ ...estilos.tabBtn, fontSize: 18.4, fontWeight: 700 }}>
-            ☰ {abaTopo === 'cadastro' ? tituloSecaoAtiva : 'Cadastro Geral'}
-          </button>
-          <button
-            onClick={() => { setAbaTopo(abaTopo === 'encontro' ? 'cadastro' : 'encontro'); setMenuAberto(false); }}
-            style={{ ...estilos.tabBtn, ...(abaTopo === 'encontro' ? estilos.tabBtnAtiva : {}), fontSize: 18.4, fontWeight: 700, marginLeft: 'auto' }}
-          >
-            {abaTopo === 'encontro' ? '← Voltar ao Cadastro' : 'Ver Encontro (Ao Vivo) →'}
-          </button>
-        </div>
-      )}
-
-      {props.offline && (podeEditarAoVivo || isDirigente) && (
-        <div style={estilos.avisoOffline}>
-          ⚠️ Firebase ainda não configurado (ou sem conexão) — as alterações ficam salvas só neste aparelho, nesta sessão.
-        </div>
-      )}
 
       <div className="ejc-layout-cadastro">
         {isDirigente && abaTopo === 'cadastro' && (
@@ -1563,10 +1585,13 @@ function ModoCelular(props) {
               podeEditar={podeEditarAoVivo}
               cores={cores}
               equipeCoordenada={isCoordenadorEquipe ? usuarioLogado : ''}
+              topoFixo={alturaHeader}
             />
           )}
 
-          {isDirigente && abaTopo === 'encontro' && <PainelAoVivo {...props} podeEditar={false} cores={cores} equipeCoordenada="" />}
+          {isDirigente && abaTopo === 'encontro' && (
+            <PainelAoVivo {...props} podeEditar={false} cores={cores} equipeCoordenada="" topoFixo={alturaHeader} />
+          )}
 
           {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'servos' && (
             <AbaCadastroPessoas
@@ -1608,6 +1633,7 @@ function ModoCelular(props) {
               senhaServo={encontro.config.senhaServo}
               senhaTela={encontro.config.senhaTela}
               senhaDirigente={encontro.config.senhaDirigente}
+              mostrarSimulacao={encontro.config.mostrarSimulacao}
               onSalvarConfig={props.onSalvarConfig}
               cores={cores}
             />
@@ -1878,7 +1904,7 @@ function AbaDirigentes({ servos, dirigentesPorFuncao, onSalvarConfig, cores }) {
   );
 }
 
-function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, onSalvarConfig, cores }) {
+function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, mostrarSimulacao, onSalvarConfig, cores }) {
   const [sServo, setSServo] = useState(senhaServo);
   const [sTela, setSTela] = useState(senhaTela);
   const [sDirigente, setSDirigente] = useState(senhaDirigente);
@@ -1908,6 +1934,21 @@ function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, onSalvarConfi
       >
         Salvar Senhas
       </button>
+
+      <div style={{ ...estilos.cartaoConfig, background: cores.cartao, marginTop: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={mostrarSimulacao !== false}
+            onChange={(e) => onSalvarConfig({ mostrarSimulacao: e.target.checked })}
+          />
+          <span>Mostrar "Simular data/hora" pro Coordenador Geral</span>
+        </label>
+        <p style={{ fontSize: 14, opacity: 0.6, margin: '4px 0 0' }}>
+          Desligue no dia do evento — a partir daí não vai precisar mais simular horário nenhum, e some do
+          painel Ao Vivo do Coordenador Geral pra ninguém mexer sem querer.
+        </p>
+      </div>
     </div>
   );
 }
@@ -2071,6 +2112,12 @@ function PainelAoVivo(props) {
   // antes via CapaImpressao.
   const [modoImpressao, setModoImpressao] = useState(null);
   const [equipeImpressao, setEquipeImpressao] = useState('');
+  // Impressão, simulação e aviso manual moram atrás de um botão no canto —
+  // só um desses painéis fica aberto por vez.
+  const [painelAberto, setPainelAberto] = useState(null); // null | 'imprimir' | 'simular' | 'aviso'
+  function alternarPainel(nome) {
+    setPainelAberto((atual) => (atual === nome ? null : nome));
+  }
 
   // equipeParaImprimir é passado só pelos botões do Coordenador de Equipe
   // (a própria equipe, fixa) — os do Coordenador Geral já mantêm o valor
@@ -2078,17 +2125,22 @@ function PainelAoVivo(props) {
   function imprimirComo(modo, equipeParaImprimir) {
     if (equipeParaImprimir !== undefined) setEquipeImpressao(equipeParaImprimir);
     setModoImpressao(modo);
+    setPainelAberto(null);
     // dá um tick pro React re-renderizar a .imprimir-area com o conteúdo
     // novo antes de abrir o diálogo de impressão do navegador.
     setTimeout(() => window.print(), 50);
   }
 
   const capelaAplicavelHoje = tarefasDia.some((t) => t.origem === 'capela');
+  // "Simular data/hora" é ferramenta de teste — o Dirigente desliga isso
+  // pra todo mundo assim que o encontro de verdade começa (Cadastro >
+  // Senha de Acesso). Default true (undefined = documento antigo).
+  const mostrarSimulacao = encontro.config.mostrarSimulacao !== false;
 
   return (
     <div>
-    <div className="no-print">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+    <div className="no-print" style={{ position: 'sticky', top: props.topoFixo || 0, zIndex: 20, background: cores.fundo, paddingTop: 4, paddingBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={estilos.seletorDias}>
           {Object.keys(DIAS_LABEL).map((d) => (
             <button
@@ -2100,48 +2152,116 @@ function PainelAoVivo(props) {
             </button>
           ))}
         </div>
-        <button onClick={() => imprimirComo('padrao')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          {podeEditar && isCoordenadorGeral && mostrarSimulacao && (
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => alternarPainel('simular')} style={estilos.btnPequeno}>🕐 Simular</button>
+              {painelAberto === 'simular' && (
+                <>
+                  <div onClick={() => setPainelAberto(null)} style={estilos.backdropPainel} />
+                  <div style={{ ...estilos.painelSuspenso, background: cores.cartao }}>
+                    <label style={{ fontSize: 15.8, opacity: 0.7 }}>Simular data/hora (para testes antes do evento)</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                      <input type="datetime-local" value={simInput} onChange={(e) => setSimInput(e.target.value)} style={{ ...estilos.input, marginBottom: 0 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => { props.onSetHoraSimulada(simInput); setPainelAberto(null); }} style={estilos.btnPequeno}>Aplicar</button>
+                        <button onClick={() => { setSimInput(''); props.onSetHoraSimulada(''); setPainelAberto(null); }} style={estilos.btnPequeno}>Real</button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {podeEditar && isCoordenadorGeral && (
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => alternarPainel('aviso')} style={estilos.btnPequeno}>📢 Aviso</button>
+              {painelAberto === 'aviso' && (
+                <>
+                  <div onClick={() => setPainelAberto(null)} style={estilos.backdropPainel} />
+                  <div style={{ ...estilos.painelSuspenso, background: cores.cartao }}>
+                    <label style={{ fontSize: 15.8, opacity: 0.7 }}>Enviar aviso manual (aparece por 20s p/ Servos + Coordenadores + Telão)</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                      <input
+                        type="text"
+                        placeholder='Ex: "Chamar João na recepção"'
+                        value={textoAviso}
+                        onChange={(e) => setTextoAviso(e.target.value)}
+                        style={{ ...estilos.input, marginBottom: 0 }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (textoAviso.trim()) {
+                            props.onEnviarAviso(textoAviso.trim());
+                            setTextoAviso('');
+                            setPainelAberto(null);
+                          }
+                        }}
+                        style={estilos.btnPequeno}
+                      >
+                        Enviar
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => alternarPainel('imprimir')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+            {painelAberto === 'imprimir' && (
+              <>
+                <div onClick={() => setPainelAberto(null)} style={estilos.backdropPainel} />
+                <div style={{ ...estilos.painelSuspenso, background: cores.cartao, right: 0, left: 'auto' }}>
+                  <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir — {DIAS_LABEL[diaSelecionado]}</label>
+                  {isCoordenadorGeral ? (
+                    <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                        <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
+                        <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
+                        <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
+                        <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
+                        <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
+                      </div>
+                      <select
+                        value={equipeImpressao}
+                        onChange={(e) => setEquipeImpressao(e.target.value)}
+                        style={{ ...estilos.input, marginTop: 8 }}
+                      >
+                        <option value="">Escolha uma equipe…</option>
+                        {encontro.equipes.map((eq) => (
+                          <option key={eq.id} value={eq.nome}>{eq.nome}</option>
+                        ))}
+                      </select>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <button onClick={() => equipeImpressao && imprimirComo('equipe')} style={estilos.btnPequeno}>🖨️ Imprimir equipe</button>
+                        <button onClick={() => equipeImpressao && imprimirComo('equipe3dias')} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+                      </div>
+                    </>
+                  ) : isCoordenadorEquipe && equipeCoordenada ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                      <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
+                      <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
+                      <button onClick={() => imprimirComo('equipe', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe {equipeCoordenada}</button>
+                      <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 8 }}>
+                      <button onClick={() => imprimirComo('padrao')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
+    </div>
 
-      {isCoordenadorGeral && (
-        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir em separado — {DIAS_LABEL[diaSelecionado]}</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-            <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
-            <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
-            <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
-            <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
-            <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            <select
-              value={equipeImpressao}
-              onChange={(e) => setEquipeImpressao(e.target.value)}
-              style={{ ...estilos.input, marginBottom: 0, flex: 1, minWidth: 160 }}
-            >
-              <option value="">Escolha uma equipe…</option>
-              {encontro.equipes.map((eq) => (
-                <option key={eq.id} value={eq.nome}>{eq.nome}</option>
-              ))}
-            </select>
-            <button onClick={() => equipeImpressao && imprimirComo('equipe')} style={estilos.btnPequeno}>🖨️ Imprimir equipe</button>
-            <button onClick={() => equipeImpressao && imprimirComo('equipe3dias')} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
-          </div>
-        </div>
-      )}
-
-      {isCoordenadorEquipe && equipeCoordenada && (
-        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir em separado — {DIAS_LABEL[diaSelecionado]}</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-            <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
-            <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
-            <button onClick={() => imprimirComo('equipe', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe {equipeCoordenada}</button>
-            <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
-          </div>
-        </div>
-      )}
-
+    <div className="no-print">
       {avisoMovimento && (
         <div style={{ ...estilos.bannerInline, background: CORES.terracota }}>
           🤫 Movimento em andamento — {avisoMovimento.movimento} — SILÊNCIO
@@ -2152,48 +2272,13 @@ function PainelAoVivo(props) {
           ✨ Momento dos Encontristas na Capela Mariana — atenção especial
         </div>
       )}
+      {/* Aviso de atraso/adiantamento (ajuste na grade) — destacado em
+          amarelo, senão passa despercebido no fundo escuro do tema padrão. */}
       {avisosVisiveis.filter((a) => a.tipo !== 3).map((a) => (
-        <div key={a.id} style={{ ...estilos.bannerInline, background: CORES.verde, color: '#fff' }}>
+        <div key={a.id} style={{ ...estilos.bannerInline, background: CORES.dourado, color: CORES.verdeEscuro }}>
           {a.mensagem}
         </div>
       ))}
-
-      {podeEditar && isCoordenadorGeral && (
-        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Simular data/hora (para testes antes do evento)</label>
-          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-            <input type="datetime-local" value={simInput} onChange={(e) => setSimInput(e.target.value)} style={{ ...estilos.input, marginBottom: 0, flex: 1 }} />
-            <button onClick={() => props.onSetHoraSimulada(simInput)} style={estilos.btnPequeno}>Aplicar</button>
-            <button onClick={() => { setSimInput(''); props.onSetHoraSimulada(''); }} style={estilos.btnPequeno}>Real</button>
-          </div>
-        </div>
-      )}
-
-      {podeEditar && isCoordenadorGeral && (
-        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Enviar aviso manual (aparece por 20s p/ Servos + Coordenadores + Telão)</label>
-          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-            <input
-              type="text"
-              placeholder='Ex: "Chamar João na recepção"'
-              value={textoAviso}
-              onChange={(e) => setTextoAviso(e.target.value)}
-              style={{ ...estilos.input, marginBottom: 0, flex: 1 }}
-            />
-            <button
-              onClick={() => {
-                if (textoAviso.trim()) {
-                  props.onEnviarAviso(textoAviso.trim());
-                  setTextoAviso('');
-                }
-              }}
-              style={estilos.btnPequeno}
-            >
-              Enviar
-            </button>
-          </div>
-        </div>
-      )}
 
       {podeEditar && (
         <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
@@ -3739,6 +3824,22 @@ const estilos = {
   chipDia: { padding: '6px 12px', borderRadius: 20, border: `1px solid ${CORES.dourado}66`, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 17 },
   cartaoConfig: { padding: 14, borderRadius: 10, marginBottom: 14 },
   btnPequeno: { padding: '8px 14px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 17 },
+  // Painel suspenso (Imprimir/Simular/Aviso) — abre ancorado no botão que o
+  // disparou, com um backdrop invisível por trás pra fechar ao clicar fora.
+  painelSuspenso: {
+    position: 'absolute',
+    top: '115%',
+    left: 0,
+    zIndex: 40,
+    padding: 14,
+    borderRadius: 10,
+    minWidth: 260,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  backdropPainel: { position: 'fixed', inset: 0, zIndex: 39 },
   linhaServoCelular: { display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 17.7 },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 },
   modalCaixa: { background: 'white', color: '#222', padding: 24, borderRadius: 10, maxWidth: 380, width: '100%' },
