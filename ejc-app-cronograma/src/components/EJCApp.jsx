@@ -491,17 +491,26 @@ function dataParaDiaHora(data) {
   return { dia, hora, minutos: horaParaMin(hora) };
 }
 
-// Aplica edição de nome/duração em um item e propaga o deslocamento (cascata)
-// para todos os itens seguintes do mesmo dia. Retorna a lista atualizada e o
-// delta em minutos (para gerar o aviso de atraso/adiantamento).
-function aplicarEdicaoComCascata(cronograma, id, novoNome, novaDuracao) {
+// Aplica edição de nome/hora/duração em um item e propaga o deslocamento
+// (cascata) para todos os itens seguintes do mesmo dia. O delta cascateado é
+// a mudança no HORÁRIO DE TÉRMINO do item editado (hora+duração) — cobre os
+// dois jeitos de mexer no cronograma: só mudar a duração (hora do item
+// continua a mesma, ex.: ajuste ao vivo de atraso/adiantamento) ou mudar
+// também o horário de início (ex.: correção no Cadastro > Cronograma). Sem
+// isso, editar só a hora de início (sem mudar a duração) não deslocava nada
+// depois, porque o delta antigo olhava só pra duração. `novaHora` é
+// opcional — quando omitida, mantém a hora atual do item (uso do modal Ao
+// Vivo, que não deixa editar hora). Retorna a lista atualizada e o delta em
+// minutos (para gerar o aviso de atraso/adiantamento).
+function aplicarEdicaoComCascata(cronograma, id, novoNome, novaDuracao, novaHora) {
   const item = cronograma.find((i) => i.id === id);
   if (!item) return { cronograma, delta: 0, nomeAntigo: '' };
   const nomeAntigo = item.movimento;
-  const delta = novaDuracao - item.duracaoMin;
+  const horaFinal = novaHora || item.hora;
+  const delta = horaParaMin(horaFinal) + novaDuracao - (horaParaMin(item.hora) + item.duracaoMin);
   const atualizado = cronograma.map((i) => {
     if (i.id === id) {
-      return { ...i, movimento: novoNome, duracaoMin: novaDuracao };
+      return { ...i, movimento: novoNome, duracaoMin: novaDuracao, hora: horaFinal };
     }
     if (i.dia === item.dia && i.ordem > item.ordem && delta !== 0) {
       return { ...i, hora: minParaHora(horaParaMin(i.hora) + delta) };
@@ -809,6 +818,19 @@ export default function EJCApp() {
     salvar({ ...encontro, cronograma });
   }
 
+  // Edição de um momento já existente feita em Cadastro > Cronograma (hora,
+  // duração e/ou nome, direto na tabela do Dirigente) — precisa da mesma
+  // cascata de aplicarEdicaoComCascata que o modal Ao Vivo usa, senão só
+  // aquele item muda e todo o resto do dia fica com o horário desalinhado
+  // (era exatamente esse o bug: handleSalvarCronogramaItem sozinho só
+  // substitui o item, sem deslocar os seguintes). Diferente da edição ao
+  // vivo, não gera aviso de atraso/adiantamento — aqui é ajuste/planejamento
+  // de cronograma, não uma notificação em tempo real pros Servos.
+  function handleEditarCronogramaItemComCascata(item) {
+    const { cronograma } = aplicarEdicaoComCascata(encontro.cronograma, item.id, item.movimento, item.duracaoMin, item.hora);
+    salvar({ ...encontro, cronograma });
+  }
+
   function handleExcluirCronogramaItem(id) {
     salvar({ ...encontro, cronograma: encontro.cronograma.filter((i) => i.id !== id) });
   }
@@ -931,6 +953,7 @@ export default function EJCApp() {
       onEnviarAviso={handleEnviarAviso}
       onToggleTema={handleToggleTema}
       onSalvarCronogramaItem={handleSalvarCronogramaItem}
+      onEditarCronogramaItemComCascata={handleEditarCronogramaItemComCascata}
       onExcluirCronogramaItem={handleExcluirCronogramaItem}
       onSalvarPessoa={handleSalvarPessoa}
       onExcluirPessoa={handleExcluirPessoa}
@@ -2260,18 +2283,21 @@ function ModalEditarMomento({ item, onSalvar, onFechar }) {
 // Aba Cadastro > Cronograma (CRUD completo, inclusive equipes/tarefa servos)
 // — acesso exclusivo do Dirigente
 // ============================================================================
-function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onExcluirCronogramaItem, onSalvarPessoa, onExcluirPessoa, cores }) {
+function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onEditarCronogramaItemComCascata, onExcluirCronogramaItem, onSalvarPessoa, onExcluirPessoa, cores }) {
   const [diaSelecionado, setDiaSelecionado] = useState(Object.keys(DIAS_LABEL)[0]);
   const itensDia = encontro.cronograma.filter((i) => i.dia === diaSelecionado).sort((a, b) => a.ordem - b.ordem);
   const [novo, setNovo] = useState({ hora: '', duracaoMin: 15, movimento: '' });
 
   function adicionar() {
     if (!novo.hora || !novo.movimento.trim()) return;
-    const maxOrdem = Math.max(0, ...encontro.cronograma.map((i) => i.ordem));
+    // maxOrdem só do dia selecionado — usar o máximo global (de todos os
+    // dias) inflava a ordem do item novo bem acima da de qualquer outro
+    // momento do mesmo dia, quebrando a ordenação e a cascata daquele dia.
+    const maxOrdemDoDia = Math.max(0, ...itensDia.map((i) => i.ordem));
     onSalvarCronogramaItem({
-      id: `${diaSelecionado}-${maxOrdem + 1}`,
+      id: `${diaSelecionado}-${Date.now()}`,
       dia: diaSelecionado,
-      ordem: maxOrdem + 1,
+      ordem: maxOrdemDoDia + 1,
       hora: novo.hora,
       duracaoMin: novo.duracaoMin,
       movimento: novo.movimento,
@@ -2295,7 +2321,8 @@ function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onExcluirCr
         </div>
         <p style={{ fontSize: 15.8, opacity: 0.65, marginTop: -2 }}>
           Clique num momento pra editar hora/duração e as tarefas de cada equipe naquele momento (é aqui que se
-          completam dias com equipes ainda em branco, como o Domingo).
+          completam dias com equipes ainda em branco, como o Domingo). Mudar a hora ou a duração desloca
+          automaticamente todos os momentos seguintes daquele dia, pra manter os intervalos entre eles.
         </p>
         {itensDia.map((item) => (
           <LinhaCronogramaEditavel
@@ -2304,7 +2331,7 @@ function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onExcluirCr
             equipes={encontro.equipes}
             tarefas={encontro.tarefasEquipe.filter((t) => t.cronogramaItemId === item.id)}
             cores={cores}
-            onSalvar={onSalvarCronogramaItem}
+            onSalvar={onEditarCronogramaItemComCascata}
             onExcluir={() => onExcluirCronogramaItem(item.id)}
             onSalvarTarefa={(t) => onSalvarPessoa('tarefasEquipe', t)}
             onExcluirTarefa={(id) => onExcluirPessoa('tarefasEquipe', id)}
