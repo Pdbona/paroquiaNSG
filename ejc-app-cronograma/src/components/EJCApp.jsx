@@ -699,6 +699,17 @@ function ehMomentoMovimentacao(texto) {
   return /movimenta/i.test(texto || '');
 }
 
+// Extrai o destino de um texto "Movimentação para X" (ex.: "capela",
+// "o plenário", "a quadra") pro aviso de SILÊNCIO mostrar pra onde o
+// Encontrista está indo. Funciona mesmo quando "Movimentação" vem no meio
+// do texto (ex.: "Apresentação dos Círculos / Movimentação para o
+// plenário") — pega tudo depois de "para", sem exigir que comece a frase.
+// Sem "para" no texto (raro), cai pro que sobrar depois de "movimentação".
+function extrairDestinoMovimento(texto) {
+  const m = /movimenta[çc][ãa]o(?:\s+para)?\s*(.*)/i.exec(texto || '');
+  return (m && m[1] ? m[1] : '').trim().replace(/[.,;/\s]+$/, '');
+}
+
 // Agrupa tarefas de equipe por horário de início — cada grupo vira uma
 // "linha do tempo" com um cartão por equipe que tem ação naquele horário,
 // pra rolar na horizontal (ver FaixaHorarioEquipes) em vez de uma lista
@@ -1302,13 +1313,8 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
         </div>
       </div>
 
-      {(avisoMovimento || momentoEncontristasAtivo || avisosVisiveis.some((a) => a.tipo !== 3)) && (
+      {(momentoEncontristasAtivo || avisosVisiveis.some((a) => a.tipo !== 3)) && (
         <div style={estilos.bannerContainer}>
-          {avisoMovimento && (
-            <div style={{ ...estilos.banner, background: CORES.terracota }}>
-              🤫 Movimento em andamento — {avisoMovimento.movimento} — SILÊNCIO, por favor
-            </div>
-          )}
           {momentoEncontristasAtivo && (
             <div style={{ ...estilos.banner, background: CORES.dourado, color: CORES.verdeEscuro }}>
               ✨ Momento dos Encontristas na Capela Mariana — atenção especial
@@ -1320,6 +1326,14 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
               {a.mensagem}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Aviso de SILÊNCIO (Encontrista se movimentando) — centralizado na
+          tela, igual ao aviso manual, pra ninguém deixar passar. */}
+      {avisoMovimento && (
+        <div style={estilos.avisoMovimentoCentral}>
+          🤫 SILÊNCIO - Encontrista se movimentando para {extrairDestinoMovimento(avisoMovimento.movimento) || '...'}. Entendeu.
         </div>
       )}
 
@@ -2434,12 +2448,15 @@ function PainelAoVivo(props) {
       </div>
     </div>
 
+    {/* Aviso de SILÊNCIO (Encontrista se movimentando) — centralizado na
+        tela, igual ao aviso manual, pra ninguém deixar passar. */}
+    {avisoMovimento && (
+      <div style={estilos.avisoMovimentoCentral}>
+        🤫 SILÊNCIO - Encontrista se movimentando para {extrairDestinoMovimento(avisoMovimento.movimento) || '...'}. Entendeu.
+      </div>
+    )}
+
     <div className="no-print">
-      {avisoMovimento && (
-        <div style={{ ...estilos.bannerInline, background: CORES.terracota }}>
-          🤫 Movimento em andamento — {avisoMovimento.movimento} — SILÊNCIO
-        </div>
-      )}
       {momentoEncontristasAtivo && (
         <div style={{ ...estilos.bannerInline, background: CORES.dourado, color: CORES.verdeEscuro }}>
           ✨ Momento dos Encontristas na Capela Mariana — atenção especial
@@ -3967,6 +3984,25 @@ const estilos = {
     left: '50%',
     transform: 'translate(-50%, -50%)',
     background: `${CORES.vermelhoSangue}e0`,
+    color: '#fff',
+    padding: '30px 48px',
+    borderRadius: 16,
+    fontWeight: 700,
+    fontSize: 29.6,
+    textAlign: 'center',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+    zIndex: 50,
+    maxWidth: '82vw',
+  },
+  // Aviso de SILÊNCIO (Encontrista se movimentando) — mesmo tratamento do
+  // avisoManual (centralizado, grande), cor terracota pra diferenciar de um
+  // aviso digitado pelo Coordenador Geral.
+  avisoMovimentoCentral: {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: `${CORES.terracota}e0`,
     color: '#fff',
     padding: '30px 48px',
     borderRadius: 16,
