@@ -2474,7 +2474,7 @@ function CaixaEquipeSimples({ tarefa, cores }) {
         borderRadius: 8,
         borderLeft: `3px solid ${corSelo ? `${corSelo}${especial ? '' : '77'}` : 'transparent'}`,
         background: especial ? `${CORES.dourado}30` : cores.cartao,
-        fontSize: 15.8,
+        fontSize: 17.5,
         fontWeight: 600,
       }}
     >
