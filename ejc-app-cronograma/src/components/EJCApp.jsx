@@ -534,6 +534,22 @@ function dataParaDiaHora(data) {
   return { dia, hora, minutos: horaParaMin(hora) };
 }
 
+// Rótulo de relógio (data por extenso + hora) pro cabeçalho de qualquer
+// tela — usa horaAtual, que já reflete horaSimulada quando ativo e anda
+// sozinho graças ao heartbeat de 30s no componente principal. `curto` usa
+// dia da semana abreviado (cabe melhor no cabeçalho apertado do celular);
+// por extenso é o padrão (Tela/telão, que tem mais espaço). Retorna
+// {dataLabel, hora} separados pra cada tela estilizar do seu jeito (ex:
+// hora grande em destaque no telão, tudo numa linha só no celular).
+function formatarRelogioCabecalho(horaAtual, { curto = false } = {}) {
+  const data = new Date(`${horaAtual.dia}T${horaAtual.hora}:00`);
+  if (isNaN(data.getTime())) return null;
+  const dataLabel = data
+    .toLocaleDateString('pt-BR', { weekday: curto ? 'short' : 'long', day: '2-digit', month: '2-digit' })
+    .replace(/^./, (c) => c.toUpperCase());
+  return { dataLabel, hora: horaAtual.hora };
+}
+
 // Aplica edição de nome/hora/duração em um item e propaga o deslocamento
 // (cascata) para todos os itens seguintes do mesmo dia. O delta cascateado é
 // a mudança no HORÁRIO DE TÉRMINO do item editado (hora+duração) — cobre os
@@ -1315,13 +1331,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
   const avisosVisiveis = encontro.avisos.filter((a) => a.expiraEm > Date.now());
   const avisoMovimento = detectarAvisoMovimentoAtivo(itensDia, minAgora);
 
-  // Relógio no cabeçalho (pedido do Pablo) — data por extenso + hora,
-  // sempre a partir de horaAtual (já reflete horaSimulada quando ativo, e
-  // agora anda sozinho graças ao heartbeat de 30s lá em cima no App).
-  const relogioData = new Date(`${horaAtual.dia}T${horaAtual.hora}:00`);
-  const relogioLabel = isNaN(relogioData.getTime())
-    ? ''
-    : relogioData.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }).replace(/^./, (c) => c.toUpperCase());
+  const relogio = formatarRelogioCabecalho(horaAtual);
 
   // A lista de "próximos momentos" (demais) sempre volta pro topo quando o
   // momento atual muda — sem isso, se alguém rolou pra frente durante um
@@ -1360,10 +1370,10 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          {relogioLabel && (
+          {relogio && (
             <div style={{ fontSize: 19, opacity: 0.85, textAlign: 'right', lineHeight: 1.2 }}>
-              <div style={{ fontWeight: 700 }}>{relogioLabel}</div>
-              <div style={{ fontSize: 24, fontFamily: "'Playfair Display', serif", color: CORES.dourado }}>{horaAtual.hora}</div>
+              <div style={{ fontWeight: 700 }}>{relogio.dataLabel}</div>
+              <div style={{ fontSize: 24, fontFamily: "'Playfair Display', serif", color: CORES.dourado }}>{relogio.hora}</div>
             </div>
           )}
           <button onClick={onToggleTemaTela} style={estilos.telaoBtnTema} title="Alternar modo claro/escuro (só nesta tela)">
@@ -1636,6 +1646,12 @@ function ModoCelular(props) {
     ? { fundo: CORES.verdeEscuro, texto: CORES.marfim, cartao: 'rgba(255,255,255,0.06)' }
     : { fundo: '#F5F1E4', texto: CORES.verdeEscuro, cartao: '#ffffff' };
 
+  // Relógio no cabeçalho, igual ao da Tela — pedido do Pablo pra valer
+  // pra todos os perfis (Servo, Coordenadores, Administrador), não só o
+  // telão. `curto` (dia da semana abreviado) porque aqui o cabeçalho é
+  // bem mais apertado que o da Tela.
+  const relogio = formatarRelogioCabecalho(horaAtual, { curto: true });
+
   const rotuloPerfil =
     perfil === 'coordenadorGeral' ? `Coordenador Geral — ${usuarioLogado}` :
     perfil === 'coordenadorEquipe' ? `Coordenador de Equipe — ${usuarioLogado}` :
@@ -1722,6 +1738,11 @@ function ModoCelular(props) {
             <div>
               <div style={{ fontSize: 15.8, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>{rotuloPerfil}</div>
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, color: CORES.dourado, lineHeight: 1.2 }}>{branding.nomeParoquia}</div>
+              {relogio && (
+                <div style={{ fontSize: 14.5, opacity: 0.65, marginTop: 2 }}>
+                  {relogio.dataLabel} · {relogio.hora}
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
