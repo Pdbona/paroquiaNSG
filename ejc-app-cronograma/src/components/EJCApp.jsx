@@ -922,6 +922,29 @@ export default function EJCApp() {
     salvar({ ...encontro, servos: [...encontro.servos, ...servosSemDuplicata], encontristas: encontristasAtualizados });
   }
 
+  // Desfaz um "Formado" individual (reverso de handleFinalizarEncontro para
+  // um só registro): a pessoa volta a aparecer em Confirmados e o Servo
+  // criado automaticamente pra ela (id "servo-de-<id>") é removido — mas só
+  // se ninguém mexeu nesse Servo depois (ex.: já foi vinculado a uma equipe).
+  // Sem essa trava, reverter apagaria trabalho de cadastro feito depois da
+  // virada, sem aviso.
+  function handleReverterFormado(id) {
+    const idServo = `servo-de-${id}`;
+    const servoAutoCriado = encontro.servos.find((s) => s.id === idServo);
+    const aindaIntocado = servoAutoCriado && !servoAutoCriado.equipe;
+    if (servoAutoCriado && !aindaIntocado) {
+      // eslint-disable-next-line no-alert
+      if (!window.confirm('Este Servo já foi vinculado a uma equipe. Reverter mesmo assim? O registro de Servo será removido.')) {
+        return;
+      }
+    }
+    salvar({
+      ...encontro,
+      servos: encontro.servos.filter((s) => s.id !== idServo),
+      encontristas: encontro.encontristas.map((p) => (p.id === id ? { ...p, status: 'aprovado' } : p)),
+    });
+  }
+
   function tentarEntrar(senha) {
     const match = resolverAcessoPorSenha(senha, encontro.config, encontro.equipes);
     if (match) {
@@ -994,6 +1017,7 @@ export default function EJCApp() {
       onExcluirPessoa={handleExcluirPessoa}
       onSalvarConfig={handleSalvarConfig}
       onFinalizarEncontro={handleFinalizarEncontro}
+      onReverterFormado={handleReverterFormado}
       onSetHoraSimulada={setHoraSimulada}
       horaSimulada={horaSimulada}
       onSair={sair}
@@ -1553,7 +1577,18 @@ function ModoCelular(props) {
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, color: CORES.dourado, lineHeight: 1.2 }}>{branding.nomeParoquia}</div>
             </div>
           </div>
-          <button onClick={onSair} style={estilos.btnSairHeader}>Sair</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {podeEditarAoVivo && (
+              <button
+                onClick={props.onToggleTema}
+                title={`Alternar tema (ativar ${encontro.config.tema === 'dark' ? 'claro' : 'escuro'})`}
+                style={estilos.btnSairHeader}
+              >
+                {encontro.config.tema === 'dark' ? '☀️' : '🌙'}
+              </button>
+            )}
+            <button onClick={onSair} style={estilos.btnSairHeader}>Sair</button>
+          </div>
         </div>
         <div style={{ height: 4, background: CORES.dourado }} />
 
@@ -1695,6 +1730,7 @@ function ModoCelular(props) {
               onSalvarPessoa={(p) => props.onSalvarPessoa('encontristas', p)}
               onExcluirPessoa={(id) => props.onExcluirPessoa('encontristas', id)}
               onFinalizarEncontro={props.onFinalizarEncontro}
+              onReverterFormado={props.onReverterFormado}
               cores={cores}
             />
           )}
@@ -2280,8 +2316,9 @@ function PainelAoVivo(props) {
                       <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
                     </div>
                   ) : (
-                    <div style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                       <button onClick={() => imprimirComo('padrao')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+                      <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
                     </div>
                   )}
                 </div>
@@ -2310,14 +2347,6 @@ function PainelAoVivo(props) {
           {a.mensagem}
         </div>
       ))}
-
-      {podeEditar && (
-        <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
-          <button onClick={props.onToggleTema} style={{ ...estilos.btnLink, marginTop: 0 }}>
-            Alternar tema ({encontro.config.tema === 'dark' ? 'ativar claro' : 'ativar escuro'})
-          </button>
-        </div>
-      )}
 
       {/* Aviso manual do Coordenador Geral — centralizado na tela, maior e
           em vermelho sangue translúcido, separado dos demais avisos. */}
@@ -3525,7 +3554,7 @@ const CAMPOS_ENCONTRISTA = [
   { key: 'camisa', label: 'Camisa', tipo: 'text' },
 ];
 
-function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFinalizarEncontro, cores }) {
+function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFinalizarEncontro, onReverterFormado, cores }) {
   const pendentes = encontristas.filter((p) => (p.status || 'pendente') === 'pendente');
   const aprovados = encontristas.filter((p) => p.status === 'aprovado');
   const rejeitados = encontristas.filter((p) => p.status === 'rejeitado');
@@ -3650,6 +3679,7 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
           {formados.map((p) => (
             <div key={p.id} style={{ ...estilos.linhaServoCelular, background: cores.cartao, opacity: 0.6 }}>
               <span style={{ flex: 1 }}>{p.nome}</span>
+              <button onClick={() => onReverterFormado(p.id)} style={estilos.btnPequeno}>↩ Voltar</button>
             </div>
           ))}
         </>
