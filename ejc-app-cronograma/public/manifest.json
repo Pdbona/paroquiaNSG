@@ -1,0 +1,25 @@
+{
+  "short_name": "EJC Guadalupe",
+  "name": "EJC - Encontro de Jovens com Cristo - Nossa Senhora de Guadalupe",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0F3A28",
+  "background_color": "#0F3A28"
+}
