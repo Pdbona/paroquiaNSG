@@ -2457,19 +2457,45 @@ function ImpressaoEscalaHorizontal({ titulo, origens, comRefeicao, encontro }) {
   );
 }
 
+// Caixinha só com ícone + nome da equipe, sem a segunda linha de rótulo da
+// origem (Vigília/Capela Mariana/Almoço/Jantar) — usada só dentro de
+// VisualizarEscala, onde esse rótulo já é o título do modal inteiro
+// (repetir em toda caixinha é redundante). Diferente de CaixaTarefaEquipe
+// (painel Ao Vivo), que precisa da segunda linha porque mistura tarefas de
+// origens diferentes na mesma lista.
+function CaixaEquipeSimples({ tarefa, cores }) {
+  const especial = ehEquipeEncontristas(tarefa.equipeNome);
+  const info = ORIGEM_INFO[tarefa.origem];
+  const corSelo = especial ? CORES.dourado : info?.cor;
+  return (
+    <div
+      style={{
+        padding: '7px 10px',
+        borderRadius: 8,
+        borderLeft: `3px solid ${corSelo ? `${corSelo}${especial ? '' : '77'}` : 'transparent'}`,
+        background: especial ? `${CORES.dourado}30` : cores.cartao,
+        fontSize: 15.8,
+        fontWeight: 600,
+      }}
+    >
+      {especial ? '✨ ' : info ? `${info.icone} ` : ''}
+      {tarefa.equipeNome}
+    </div>
+  );
+}
+
 // Painel de visualização compacto (diferente da .imprimir-area, que fica
 // invisível até mandar imprimir) — pro Coordenador Geral e de Equipe
 // conferirem Vigília/Capela Mariana/Almoço-Jantar sem precisar imprimir.
 // Sempre mostra os 3 dias juntos, essas escalas não têm noção de "dia
 // selecionado" própria (ver PainelAoVivo pra impressão equivalente). Os 3
 // dias ficam em colunas lado a lado (não empilhados) — dentro de cada
-// coluna, agrupa por horário e usa as mesmas "caixinhas"
-// (CaixaTarefaEquipe/agruparTarefasPorHora) do painel Ao Vivo: horários
-// repetidos (comum em Almoço/Jantar, várias equipes na mesma hora) ficam
-// juntos em vez de uma linha inteira por item. Tem botão de imprimir
-// próprio (mesma função onImprimir do menu 🖨️ do cabeçalho) — ver
-// ImpressaoEscalaHorizontal pro layout real da impressão (1 página só,
-// paisagem).
+// coluna, agrupa por horário e usa CaixaEquipeSimples (só ícone + nome,
+// sem repetir o rótulo da origem): horários repetidos (comum em
+// Almoço/Jantar, várias equipes na mesma hora) ficam juntos em vez de uma
+// linha inteira por item. Tem botão de imprimir próprio (mesma função
+// onImprimir do menu 🖨️ do cabeçalho) — ver ImpressaoEscalaHorizontal pro
+// layout real da impressão (1 página só, paisagem).
 function VisualizarEscala({ titulo, origens, encontro, cores, onFechar, onImprimir }) {
   return (
     <div style={estilos.modalOverlay} onClick={onFechar}>
@@ -2528,7 +2554,7 @@ function VisualizarEscala({ titulo, origens, encontro, cores, onFechar, onImprim
                       <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 700, marginBottom: 3 }}>{g.hora}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {g.itens.map((t) => (
-                          <CaixaTarefaEquipe key={t.id} tarefa={t} cores={cores} />
+                          <CaixaEquipeSimples key={t.id} tarefa={t} cores={cores} />
                         ))}
                       </div>
                     </div>
