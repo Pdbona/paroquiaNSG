@@ -2452,7 +2452,7 @@ function PainelAoVivo(props) {
         tela, igual ao aviso manual, pra ninguém deixar passar. */}
     {avisoMovimento && (
       <div style={estilos.avisoMovimentoCentral}>
-        🤫 SILÊNCIO - Encontrista se movimentando para {extrairDestinoMovimento(avisoMovimento.movimento) || '...'}. Entendeu.
+        🤫 SILÊNCIO - Encontrista se movimentando para {extrairDestinoMovimento(avisoMovimento.movimento) || '...'}.
       </div>
     )}
 
