@@ -2053,6 +2053,7 @@ function ModoCelular(props) {
           encontro={encontro}
           cores={cores}
           onFechar={() => setEscalaSelecionada(null)}
+          onImprimir={() => imprimirComo(escalaSelecionada)}
         />
       )}
     </div>
@@ -2400,24 +2401,28 @@ function SecaoDiaImpressao({ dia, primeiro, children }) {
 
 // Tabela Hora/Equipe usada nas impressões em separado (Vigília, Capela
 // Mariana, Almoço/Jantar) — mesmas colunas nos três casos, com a coluna de
-// Refeição só aparecendo quando faz sentido (Almoço/Jantar).
-function TabelaImpressaoHoraEquipe({ itens, comRefeicao }) {
-  if (itens.length === 0) return <p>Nenhum plantão cadastrado pra este dia.</p>;
+// Refeição só aparecendo quando faz sentido (Almoço/Jantar). `compacta`
+// (usada no layout de 3 colunas em página só, ver ImpressaoEscalaHorizontal)
+// reduz fonte/espaçamento pra caber os 3 dias lado a lado numa folha A4.
+function TabelaImpressaoHoraEquipe({ itens, comRefeicao, compacta }) {
+  if (itens.length === 0) return <p style={compacta ? { fontSize: 11 } : undefined}>Nenhum plantão cadastrado pra este dia.</p>;
+  const th = compacta ? { ...estilos.thImpressao, padding: '2px 4px', fontSize: 11 } : estilos.thImpressao;
+  const td = compacta ? { ...estilos.tdImpressao, padding: '2px 4px', fontSize: 11 } : estilos.tdImpressao;
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15.8 }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: compacta ? 11 : 15.8 }}>
       <thead>
         <tr>
-          <th style={estilos.thImpressao}>Hora</th>
-          <th style={estilos.thImpressao}>Equipe</th>
-          {comRefeicao && <th style={estilos.thImpressao}>Refeição</th>}
+          <th style={th}>Hora</th>
+          <th style={th}>Equipe</th>
+          {comRefeicao && <th style={th}>Refeição</th>}
         </tr>
       </thead>
       <tbody>
         {itens.map((t) => (
           <tr key={t.id}>
-            <td style={estilos.tdImpressao}>{t.hora}</td>
-            <td style={estilos.tdImpressao}>{t.equipeNome}</td>
-            {comRefeicao && <td style={estilos.tdImpressao}>{ORIGEM_INFO[t.origem]?.label || t.tarefa}</td>}
+            <td style={td}>{t.hora}</td>
+            <td style={td}>{t.equipeNome}</td>
+            {comRefeicao && <td style={td}>{ORIGEM_INFO[t.origem]?.label || t.tarefa}</td>}
           </tr>
         ))}
       </tbody>
@@ -2425,17 +2430,47 @@ function TabelaImpressaoHoraEquipe({ itens, comRefeicao }) {
   );
 }
 
+// Impressão em página só, paisagem (A4) — os 3 dias lado a lado, em vez de
+// uma página por dia (ver .imprimir-escala-horizontal no index.css pro
+// tamanho/orientação da folha). Usada por Vigília/Capela Mariana/
+// Almoço-Jantar — pedido explícito de caber numa folha só.
+function ImpressaoEscalaHorizontal({ titulo, origens, comRefeicao, encontro }) {
+  return (
+    <div className="imprimir-escala-horizontal">
+      <h2 style={{ textAlign: 'center', fontFamily: "'Playfair Display', serif", fontSize: 20, margin: '0 0 10px' }}>
+        {titulo} — Sexta a Domingo, 28 a 30/08
+      </h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        {Object.keys(DIAS_LABEL).map((dia) => {
+          const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter(
+            (t) => origens.includes(t.origem)
+          );
+          return (
+            <div key={dia}>
+              <FaixaDiaImpressao dia={dia} />
+              <TabelaImpressaoHoraEquipe itens={tarefasDoDia} comRefeicao={comRefeicao} compacta />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Painel de visualização compacto (diferente da .imprimir-area, que fica
 // invisível até mandar imprimir) — pro Coordenador Geral e de Equipe
 // conferirem Vigília/Capela Mariana/Almoço-Jantar sem precisar imprimir.
 // Sempre mostra os 3 dias juntos, essas escalas não têm noção de "dia
-// selecionado" própria (ver PainelAoVivo pra impressão equivalente). Um
-// modal pequeno (não tela cheia) — dentro, agrupa por horário e usa as
-// mesmas "caixinhas" (CaixaTarefaEquipe/agruparTarefasPorHora) do painel Ao
-// Vivo, em vez de uma linha inteira por item: horários repetidos (comum em
-// Almoço/Jantar, várias equipes na mesma hora) ficam lado a lado na mesma
-// linha em vez de uma embaixo da outra.
-function VisualizarEscala({ titulo, origens, encontro, cores, onFechar }) {
+// selecionado" própria (ver PainelAoVivo pra impressão equivalente). Os 3
+// dias ficam em colunas lado a lado (não empilhados) — dentro de cada
+// coluna, agrupa por horário e usa as mesmas "caixinhas"
+// (CaixaTarefaEquipe/agruparTarefasPorHora) do painel Ao Vivo: horários
+// repetidos (comum em Almoço/Jantar, várias equipes na mesma hora) ficam
+// juntos em vez de uma linha inteira por item. Tem botão de imprimir
+// próprio (mesma função onImprimir do menu 🖨️ do cabeçalho) — ver
+// ImpressaoEscalaHorizontal pro layout real da impressão (1 página só,
+// paisagem).
+function VisualizarEscala({ titulo, origens, encontro, cores, onFechar, onImprimir }) {
   return (
     <div style={estilos.modalOverlay} onClick={onFechar}>
       <div
@@ -2444,60 +2479,65 @@ function VisualizarEscala({ titulo, origens, encontro, cores, onFechar }) {
           color: cores.texto,
           borderRadius: 10,
           boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
-          maxWidth: 480,
-          width: '100%',
-          maxHeight: '82vh',
-          overflowY: 'auto',
-          padding: '14px 16px',
+          maxWidth: 1040,
+          width: '95vw',
+          maxHeight: '85vh',
+          overflow: 'auto',
+          padding: '14px 18px',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
           <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", color: CORES.dourado, fontSize: 19 }}>{titulo}</h3>
-          <button onClick={onFechar} style={estilos.btnSairHeader}>Fechar ✕</button>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button onClick={onImprimir} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+            <button onClick={onFechar} style={estilos.btnSairHeader}>Fechar ✕</button>
+          </div>
         </div>
-        {Object.keys(DIAS_LABEL).map((dia) => {
-          const itens = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter((t) =>
-            origens.includes(t.origem)
-          );
-          const grupos = agruparTarefasPorHora(itens);
-          return (
-            <div key={dia} style={{ marginBottom: 14 }}>
-              <div
-                style={{
-                  background: CORES.verdeEscuro,
-                  color: '#fff',
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  marginBottom: 6,
-                  display: 'inline-block',
-                }}
-              >
-                {DIAS_LABEL[dia]}
-              </div>
-              {grupos.length === 0 ? (
-                <p style={{ opacity: 0.6, fontSize: 14.5, margin: '2px 0 0' }}>
-                  {origens[0] === 'capela' ? 'A escala da Capela Mariana não se aplica a este dia.' : 'Nenhum plantão cadastrado pra este dia.'}
-                </p>
-              ) : (
-                grupos.map((g) => (
-                  <div key={g.hora} style={{ marginBottom: 6 }}>
-                    <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 700, marginBottom: 3 }}>{g.hora}</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {g.itens.map((t) => (
-                        <CaixaTarefaEquipe key={t.id} tarefa={t} cores={cores} />
-                      ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(220px, 1fr))', gap: 16, minWidth: 680 }}>
+          {Object.keys(DIAS_LABEL).map((dia) => {
+            const itens = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter((t) =>
+              origens.includes(t.origem)
+            );
+            const grupos = agruparTarefasPorHora(itens);
+            return (
+              <div key={dia}>
+                <div
+                  style={{
+                    background: CORES.verdeEscuro,
+                    color: '#fff',
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    marginBottom: 8,
+                    textAlign: 'center',
+                  }}
+                >
+                  {DIAS_LABEL[dia]}
+                </div>
+                {grupos.length === 0 ? (
+                  <p style={{ opacity: 0.6, fontSize: 14 }}>
+                    {origens[0] === 'capela' ? 'Não se aplica a este dia.' : 'Nenhum plantão cadastrado.'}
+                  </p>
+                ) : (
+                  grupos.map((g) => (
+                    <div key={g.hora} style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 700, marginBottom: 3 }}>{g.hora}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {g.itens.map((t) => (
+                          <CaixaTarefaEquipe key={t.id} tarefa={t} cores={cores} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          );
-        })}
+                  ))
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -2744,22 +2784,27 @@ function PainelAoVivo(props) {
       )}
     </div>
 
-    {/* Área usada só na impressão (ver .imprimir-area em index.css). Sempre
-        começa com a capa (CapaImpressao — imagem, evento e o dia em
-        destaque) e depois o conteúdo do modoImpressao escolhido: "padrao"
-        (ou nenhum ainda escolhido) é o que já existia — Encontrista + a
-        coluna de equipe(s) visível na tela — e os demais são as impressões
-        em separado do Coordenador Geral. Sempre um dia só, o selecionado. */}
+    {/* Área usada só na impressão (ver .imprimir-area em index.css). Começa
+        com a capa (CapaImpressao — imagem, evento e o dia em destaque) e
+        depois o conteúdo do modoImpressao escolhido: "padrao" (ou nenhum
+        ainda escolhido) é o que já existia — Encontrista + a coluna de
+        equipe(s) visível na tela — e os demais são as impressões em
+        separado do Coordenador Geral. Sempre um dia só, o selecionado.
+        Vigília/Capela Mariana/Almoço-Jantar são exceção: pulam a capa (que
+        força quebra de página) porque viram uma página só, paisagem, com
+        os 3 dias lado a lado — ver ImpressaoEscalaHorizontal. */}
     <div className="imprimir-area">
-      <CapaImpressao
-        branding={branding}
-        dia={diaSelecionado}
-        rotulo={
-          ['encontrista3dias', 'equipe3dias', 'vigilia', 'capela', 'refeicoes'].includes(modoImpressao)
-            ? 'Sexta a Domingo — 28 a 30/08'
-            : undefined
-        }
-      />
+      {!['vigilia', 'capela', 'refeicoes'].includes(modoImpressao) && (
+        <CapaImpressao
+          branding={branding}
+          dia={diaSelecionado}
+          rotulo={
+            ['encontrista3dias', 'equipe3dias'].includes(modoImpressao)
+              ? 'Sexta a Domingo — 28 a 30/08'
+              : undefined
+          }
+        />
+      )}
 
       {(!modoImpressao || modoImpressao === 'padrao' || modoImpressao === 'encontrista') && (
         <>
@@ -2903,56 +2948,18 @@ function PainelAoVivo(props) {
       )}
 
       {/* Vigília, Capela Mariana e Almoço/Jantar imprimem sempre os 3 dias
-          juntos (pedido explícito) — não dependem de diaSelecionado, ao
-          contrário do resto desta área de impressão. */}
+          juntos, lado a lado numa página só, paisagem — não dependem de
+          diaSelecionado, ao contrário do resto desta área de impressão. */}
       {modoImpressao === 'vigilia' && (
-        <>
-          {Object.keys(DIAS_LABEL).map((dia, i) => {
-            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia);
-            return (
-              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
-                <h3>Escala de Vigília</h3>
-                <TabelaImpressaoHoraEquipe itens={tarefasDoDia.filter((t) => t.origem === 'vigilia')} />
-              </SecaoDiaImpressao>
-            );
-          })}
-        </>
+        <ImpressaoEscalaHorizontal titulo="Escala de Vigília" origens={['vigilia']} encontro={encontro} />
       )}
 
       {modoImpressao === 'capela' && (
-        <>
-          {Object.keys(DIAS_LABEL).map((dia, i) => {
-            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia);
-            const aplicavelNesteDia = tarefasDoDia.some((t) => t.origem === 'capela');
-            return (
-              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
-                <h3>Capela Mariana</h3>
-                {aplicavelNesteDia ? (
-                  <TabelaImpressaoHoraEquipe itens={tarefasDoDia.filter((t) => t.origem === 'capela')} />
-                ) : (
-                  <p>A escala da Capela Mariana não se aplica a este dia.</p>
-                )}
-              </SecaoDiaImpressao>
-            );
-          })}
-        </>
+        <ImpressaoEscalaHorizontal titulo="Capela Mariana" origens={['capela']} encontro={encontro} />
       )}
 
       {modoImpressao === 'refeicoes' && (
-        <>
-          {Object.keys(DIAS_LABEL).map((dia, i) => {
-            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia);
-            return (
-              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
-                <h3>Almoço / Jantar</h3>
-                <TabelaImpressaoHoraEquipe
-                  itens={tarefasDoDia.filter((t) => t.origem === 'almoco' || t.origem === 'jantar')}
-                  comRefeicao
-                />
-              </SecaoDiaImpressao>
-            );
-          })}
-        </>
+        <ImpressaoEscalaHorizontal titulo="Almoço / Jantar" origens={['almoco', 'jantar']} comRefeicao encontro={encontro} />
       )}
     </div>
     </div>

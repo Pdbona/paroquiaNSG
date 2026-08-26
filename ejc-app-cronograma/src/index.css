@@ -63,4 +63,17 @@ code {
   .no-print {
     display: none !important;
   }
+
+  /* Vigília/Capela Mariana/Almoço-Jantar — 1 página só, paisagem, os 3 dias
+     lado a lado (pedido explícito, ver ImpressaoEscalaHorizontal em
+     EJCApp.jsx). "page:" + "@page <nome>" é suportado no Chrome/Edge (o que
+     roda na prática nesses celulares) — em navegador sem suporte, cai pra
+     retrato padrão sem quebrar o conteúdo, só perde a orientação. */
+  .imprimir-escala-horizontal {
+    page: escala-horizontal;
+  }
+}
+@page escala-horizontal {
+  size: A4 landscape;
+  margin: 10mm;
 }
