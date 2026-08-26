@@ -2050,7 +2050,6 @@ function ModoCelular(props) {
             : 'Almoço / Jantar'
           }
           origens={escalaSelecionada === 'refeicoes' ? ['almoco', 'jantar'] : [escalaSelecionada]}
-          comRefeicao={escalaSelecionada === 'refeicoes'}
           encontro={encontro}
           cores={cores}
           onFechar={() => setEscalaSelecionada(null)}
@@ -2426,55 +2425,80 @@ function TabelaImpressaoHoraEquipe({ itens, comRefeicao }) {
   );
 }
 
-// Painel de visualização em tela cheia (diferente da .imprimir-area, que
-// fica invisível até mandar imprimir) — pro Coordenador Geral e de Equipe
+// Painel de visualização compacto (diferente da .imprimir-area, que fica
+// invisível até mandar imprimir) — pro Coordenador Geral e de Equipe
 // conferirem Vigília/Capela Mariana/Almoço-Jantar sem precisar imprimir.
 // Sempre mostra os 3 dias juntos, essas escalas não têm noção de "dia
-// selecionado" própria (ver PainelAoVivo pra impressão equivalente).
-function VisualizarEscala({ titulo, origens, comRefeicao, encontro, cores, onFechar }) {
+// selecionado" própria (ver PainelAoVivo pra impressão equivalente). Um
+// modal pequeno (não tela cheia) — dentro, agrupa por horário e usa as
+// mesmas "caixinhas" (CaixaTarefaEquipe/agruparTarefasPorHora) do painel Ao
+// Vivo, em vez de uma linha inteira por item: horários repetidos (comum em
+// Almoço/Jantar, várias equipes na mesma hora) ficam lado a lado na mesma
+// linha em vez de uma embaixo da outra.
+function VisualizarEscala({ titulo, origens, encontro, cores, onFechar }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: cores.fundo, color: cores.texto, overflowY: 'auto', padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12 }}>
-        <h2 style={{ margin: 0, fontFamily: "'Playfair Display', serif", color: CORES.dourado }}>{titulo}</h2>
-        <button onClick={onFechar} style={estilos.btnSairHeader}>Fechar ✕</button>
-      </div>
-      {Object.keys(DIAS_LABEL).map((dia) => {
-        const itens = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter((t) =>
-          origens.includes(t.origem)
-        );
-        return (
-          <div key={dia} style={{ marginBottom: 24 }}>
-            <div
-              style={{
-                background: CORES.verdeEscuro,
-                color: '#fff',
-                padding: '8px 16px',
-                borderRadius: 6,
-                fontWeight: 700,
-                fontSize: 18,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-                marginBottom: 10,
-              }}
-            >
-              {DIAS_LABEL[dia]}
+    <div style={estilos.modalOverlay} onClick={onFechar}>
+      <div
+        style={{
+          background: cores.fundo,
+          color: cores.texto,
+          borderRadius: 10,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+          maxWidth: 480,
+          width: '100%',
+          maxHeight: '82vh',
+          overflowY: 'auto',
+          padding: '14px 16px',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
+          <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", color: CORES.dourado, fontSize: 19 }}>{titulo}</h3>
+          <button onClick={onFechar} style={estilos.btnSairHeader}>Fechar ✕</button>
+        </div>
+        {Object.keys(DIAS_LABEL).map((dia) => {
+          const itens = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter((t) =>
+            origens.includes(t.origem)
+          );
+          const grupos = agruparTarefasPorHora(itens);
+          return (
+            <div key={dia} style={{ marginBottom: 14 }}>
+              <div
+                style={{
+                  background: CORES.verdeEscuro,
+                  color: '#fff',
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 6,
+                  display: 'inline-block',
+                }}
+              >
+                {DIAS_LABEL[dia]}
+              </div>
+              {grupos.length === 0 ? (
+                <p style={{ opacity: 0.6, fontSize: 14.5, margin: '2px 0 0' }}>
+                  {origens[0] === 'capela' ? 'A escala da Capela Mariana não se aplica a este dia.' : 'Nenhum plantão cadastrado pra este dia.'}
+                </p>
+              ) : (
+                grupos.map((g) => (
+                  <div key={g.hora} style={{ marginBottom: 6 }}>
+                    <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 700, marginBottom: 3 }}>{g.hora}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {g.itens.map((t) => (
+                        <CaixaTarefaEquipe key={t.id} tarefa={t} cores={cores} />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            {itens.length === 0 ? (
-              <p style={{ opacity: 0.6, fontSize: 15.8 }}>
-                {origens[0] === 'capela' ? 'A escala da Capela Mariana não se aplica a este dia.' : 'Nenhum plantão cadastrado pra este dia.'}
-              </p>
-            ) : (
-              itens.map((t) => (
-                <div key={t.id} style={{ ...estilos.linhaServoCelular, background: cores.cartao }}>
-                  <span style={{ opacity: 0.7, width: 56, flexShrink: 0 }}>{t.hora}</span>
-                  <span style={{ flex: 1 }}>{t.equipeNome}</span>
-                  {comRefeicao && <span style={{ fontSize: 15, opacity: 0.7 }}>{ORIGEM_INFO[t.origem]?.label}</span>}
-                </div>
-              ))
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
