@@ -16,6 +16,9 @@ on:
     branches: [main, master]
     paths:
       - 'ejc-app-cronograma/**'
+  # Permite disparar manualmente pela aba Actions (ou via API) quando um push
+  # não aciona o workflow sozinho por algum motivo.
+  workflow_dispatch: {}
 
 jobs:
   build-and-deploy:
