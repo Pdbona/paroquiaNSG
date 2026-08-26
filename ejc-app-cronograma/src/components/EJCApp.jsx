@@ -478,6 +478,24 @@ const ENCONTRO_PADRAO = {
   config: CONFIG_PADRAO,
 };
 
+// Converte um documento cru do Firestore no formato de `encontro` usado pelo
+// app, com fallback pros dados-semente só nos campos que fazem sentido ter
+// semente (cronograma/equipes/tarefasEquipe/capelaMariana) — nunca em
+// servos/encontristas/config, que são sempre o que está no banco (ou vazio),
+// pra não mascarar dado real que porventura esteja faltando.
+function mapearDocParaEncontro(d) {
+  return {
+    cronograma: d.cronograma?.length ? d.cronograma : ENCONTRO_PADRAO.cronograma,
+    servos: d.servos || [],
+    encontristas: d.encontristas || [],
+    equipes: d.equipes?.length ? d.equipes : ENCONTRO_PADRAO.equipes,
+    tarefasEquipe: d.tarefasEquipe?.length ? d.tarefasEquipe : ENCONTRO_PADRAO.tarefasEquipe,
+    capelaMariana: d.capelaMariana?.length ? d.capelaMariana : ENCONTRO_PADRAO.capelaMariana,
+    avisos: d.avisos || [],
+    config: { ...CONFIG_PADRAO, ...(d.config || {}) },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Helpers de tempo
 // ---------------------------------------------------------------------------
@@ -760,21 +778,34 @@ export default function EJCApp() {
         ref,
         (snap) => {
           if (!ativo) return;
+          // INCIDENTE (26/08/2026): um aparelho com internet instável pode
+          // receber um snapshot "não existe" que veio só do cache local do
+          // SDK (metadata.fromCache), sem confirmação nenhuma do servidor —
+          // isso NÃO significa que o documento realmente não existe. Sem
+          // essa checagem, o ramo de "primeira vez" abaixo rodava um
+          // `setDoc` cru e apagava o documento real (servos, senhas,
+          // coordenadores) trocando tudo pelos dados de demonstração. Só
+          // decide com base numa resposta CONFIRMADA pelo servidor.
+          if (snap.metadata.fromCache) {
+            if (snap.exists()) {
+              // tem algo em cache de uma sessão anterior — mostra enquanto
+              // espera a confirmação do servidor, sem travar a tela.
+              clearTimeout(timeoutOffline);
+              setEncontro(mapearDocParaEncontro(snap.data()));
+              setCarregado(true);
+              setOffline(false);
+            }
+            // "não existe" vindo só do cache: não faz nada — espera o
+            // timeoutOffline (modo offline local) ou a confirmação real.
+            return;
+          }
           clearTimeout(timeoutOffline);
           if (snap.exists()) {
-            const d = snap.data();
-            setEncontro({
-              cronograma: d.cronograma?.length ? d.cronograma : ENCONTRO_PADRAO.cronograma,
-              servos: d.servos || [],
-              encontristas: d.encontristas || [],
-              equipes: d.equipes?.length ? d.equipes : ENCONTRO_PADRAO.equipes,
-              tarefasEquipe: d.tarefasEquipe?.length ? d.tarefasEquipe : ENCONTRO_PADRAO.tarefasEquipe,
-              capelaMariana: d.capelaMariana?.length ? d.capelaMariana : ENCONTRO_PADRAO.capelaMariana,
-              avisos: d.avisos || [],
-              config: { ...CONFIG_PADRAO, ...(d.config || {}) },
-            });
+            setEncontro(mapearDocParaEncontro(snap.data()));
           } else {
-            // primeira vez: semeia o documento com os dados padrão
+            // confirmado pelo servidor: o documento realmente não existe
+            // (só deve acontecer na primeiríssima vez que este evento é
+            // aberto) — agora sim é seguro semear os dados padrão.
             setDoc(ref, ENCONTRO_PADRAO).catch(() => setOffline(true));
           }
           setCarregado(true);
