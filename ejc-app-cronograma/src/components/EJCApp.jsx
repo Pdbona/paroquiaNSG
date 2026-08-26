@@ -1574,6 +1574,12 @@ function ModoCelular(props) {
   const [equipeImpressao, setEquipeImpressao] = useState('');
   const [painelImprimirAberto, setPainelImprimirAberto] = useState(false);
 
+  // Ver escala completa na tela (Vigília/Capela Mariana/Almoço-Jantar) — não é
+  // impressão, é uma visualização normal, sempre com os 3 dias juntos (essas
+  // escalas não têm um "dia selecionado" próprio como o resto do Ao Vivo).
+  const [escalaMenuAberto, setEscalaMenuAberto] = useState(false);
+  const [escalaSelecionada, setEscalaSelecionada] = useState(null);
+
   // equipeParaImprimir é passado só pelos botões do Coordenador de Equipe
   // (a própria equipe, fixa) — os do Coordenador Geral já mantêm o valor
   // escolhido no <select> em equipeImpressao.
@@ -1709,6 +1715,46 @@ function ModoCelular(props) {
                     </>
                   )}
                 </div>
+
+                {podeEditarAoVivo && (
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setEscalaMenuAberto((a) => !a)}
+                      title="Ver escala completa (Vigília / Capela Mariana / Almoço-Jantar)"
+                      style={estilos.btnIconeHeader}
+                    >
+                      📋
+                    </button>
+                    {escalaMenuAberto && (
+                      <>
+                        <div onClick={() => setEscalaMenuAberto(false)} style={estilos.backdropPainel} />
+                        <div style={{ ...estilos.painelSuspenso, background: cores.cartao, right: 0, left: 'auto' }}>
+                          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Ver escala (Sexta a Domingo)</label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                            <button
+                              onClick={() => { setEscalaSelecionada('vigilia'); setEscalaMenuAberto(false); }}
+                              style={estilos.btnPequeno}
+                            >
+                              🕯️ Vigília
+                            </button>
+                            <button
+                              onClick={() => { setEscalaSelecionada('capela'); setEscalaMenuAberto(false); }}
+                              style={estilos.btnPequeno}
+                            >
+                              ⛪ Capela Mariana
+                            </button>
+                            <button
+                              onClick={() => { setEscalaSelecionada('refeicoes'); setEscalaMenuAberto(false); }}
+                              style={estilos.btnPequeno}
+                            >
+                              🍽️ Almoço/Jantar
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {isCoordenadorGeral && (
                   <div style={{ position: 'relative' }}>
@@ -1948,6 +1994,21 @@ function ModoCelular(props) {
           .ejc-conteudo-cadastro { flex: 1 1 auto; max-width: 1100px !important; }
         }
       `}</style>
+
+      {escalaSelecionada && (
+        <VisualizarEscala
+          titulo={
+            escalaSelecionada === 'vigilia' ? 'Escala de Vigília'
+            : escalaSelecionada === 'capela' ? 'Capela Mariana'
+            : 'Almoço / Jantar'
+          }
+          origens={escalaSelecionada === 'refeicoes' ? ['almoco', 'jantar'] : [escalaSelecionada]}
+          comRefeicao={escalaSelecionada === 'refeicoes'}
+          encontro={encontro}
+          cores={cores}
+          onFechar={() => setEscalaSelecionada(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2317,6 +2378,59 @@ function TabelaImpressaoHoraEquipe({ itens, comRefeicao }) {
   );
 }
 
+// Painel de visualização em tela cheia (diferente da .imprimir-area, que
+// fica invisível até mandar imprimir) — pro Coordenador Geral e de Equipe
+// conferirem Vigília/Capela Mariana/Almoço-Jantar sem precisar imprimir.
+// Sempre mostra os 3 dias juntos, essas escalas não têm noção de "dia
+// selecionado" própria (ver PainelAoVivo pra impressão equivalente).
+function VisualizarEscala({ titulo, origens, comRefeicao, encontro, cores, onFechar }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: cores.fundo, color: cores.texto, overflowY: 'auto', padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12 }}>
+        <h2 style={{ margin: 0, fontFamily: "'Playfair Display', serif", color: CORES.dourado }}>{titulo}</h2>
+        <button onClick={onFechar} style={estilos.btnSairHeader}>Fechar ✕</button>
+      </div>
+      {Object.keys(DIAS_LABEL).map((dia) => {
+        const itens = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia).filter((t) =>
+          origens.includes(t.origem)
+        );
+        return (
+          <div key={dia} style={{ marginBottom: 24 }}>
+            <div
+              style={{
+                background: CORES.verdeEscuro,
+                color: '#fff',
+                padding: '8px 16px',
+                borderRadius: 6,
+                fontWeight: 700,
+                fontSize: 18,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 10,
+              }}
+            >
+              {DIAS_LABEL[dia]}
+            </div>
+            {itens.length === 0 ? (
+              <p style={{ opacity: 0.6, fontSize: 15.8 }}>
+                {origens[0] === 'capela' ? 'A escala da Capela Mariana não se aplica a este dia.' : 'Nenhum plantão cadastrado pra este dia.'}
+              </p>
+            ) : (
+              itens.map((t) => (
+                <div key={t.id} style={{ ...estilos.linhaServoCelular, background: cores.cartao }}>
+                  <span style={{ opacity: 0.7, width: 56, flexShrink: 0 }}>{t.hora}</span>
+                  <span style={{ flex: 1 }}>{t.equipeNome}</span>
+                  {comRefeicao && <span style={{ fontSize: 15, opacity: 0.7 }}>{ORIGEM_INFO[t.origem]?.label}</span>}
+                </div>
+              ))
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PainelAoVivo(props) {
   const {
     perfil, encontro, horaAtual, cores, podeEditar, branding, equipeCoordenada,
@@ -2365,7 +2479,6 @@ function PainelAoVivo(props) {
     setPainelAberto((atual) => (atual === nome ? null : nome));
   }
 
-  const capelaAplicavelHoje = tarefasDia.some((t) => t.origem === 'capela');
   // "Simular data/hora" é ferramenta de teste — o Dirigente desliga isso
   // pra todo mundo assim que o encontro de verdade começa (Cadastro >
   // Senha de Acesso). Default true (undefined = documento antigo).
@@ -2569,7 +2682,11 @@ function PainelAoVivo(props) {
       <CapaImpressao
         branding={branding}
         dia={diaSelecionado}
-        rotulo={modoImpressao === 'encontrista3dias' || modoImpressao === 'equipe3dias' ? 'Sexta a Domingo — 28 a 30/08' : undefined}
+        rotulo={
+          ['encontrista3dias', 'equipe3dias', 'vigilia', 'capela', 'refeicoes'].includes(modoImpressao)
+            ? 'Sexta a Domingo — 28 a 30/08'
+            : undefined
+        }
       />
 
       {(!modoImpressao || modoImpressao === 'padrao' || modoImpressao === 'encontrista') && (
@@ -2713,34 +2830,56 @@ function PainelAoVivo(props) {
         </>
       )}
 
+      {/* Vigília, Capela Mariana e Almoço/Jantar imprimem sempre os 3 dias
+          juntos (pedido explícito) — não dependem de diaSelecionado, ao
+          contrário do resto desta área de impressão. */}
       {modoImpressao === 'vigilia' && (
         <>
-          <FaixaDiaImpressao dia={diaSelecionado} />
-          <h3>Escala de Vigília</h3>
-          <TabelaImpressaoHoraEquipe itens={tarefasDia.filter((t) => t.origem === 'vigilia')} />
+          {Object.keys(DIAS_LABEL).map((dia, i) => {
+            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia);
+            return (
+              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
+                <h3>Escala de Vigília</h3>
+                <TabelaImpressaoHoraEquipe itens={tarefasDoDia.filter((t) => t.origem === 'vigilia')} />
+              </SecaoDiaImpressao>
+            );
+          })}
         </>
       )}
 
       {modoImpressao === 'capela' && (
         <>
-          <FaixaDiaImpressao dia={diaSelecionado} />
-          <h3>Capela Mariana</h3>
-          {capelaAplicavelHoje ? (
-            <TabelaImpressaoHoraEquipe itens={tarefasDia.filter((t) => t.origem === 'capela')} />
-          ) : (
-            <p>A escala da Capela Mariana só se aplica ao Sábado e ao Domingo.</p>
-          )}
+          {Object.keys(DIAS_LABEL).map((dia, i) => {
+            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia);
+            const aplicavelNesteDia = tarefasDoDia.some((t) => t.origem === 'capela');
+            return (
+              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
+                <h3>Capela Mariana</h3>
+                {aplicavelNesteDia ? (
+                  <TabelaImpressaoHoraEquipe itens={tarefasDoDia.filter((t) => t.origem === 'capela')} />
+                ) : (
+                  <p>A escala da Capela Mariana não se aplica a este dia.</p>
+                )}
+              </SecaoDiaImpressao>
+            );
+          })}
         </>
       )}
 
       {modoImpressao === 'refeicoes' && (
         <>
-          <FaixaDiaImpressao dia={diaSelecionado} />
-          <h3>Almoço / Jantar</h3>
-          <TabelaImpressaoHoraEquipe
-            itens={tarefasDia.filter((t) => t.origem === 'almoco' || t.origem === 'jantar')}
-            comRefeicao
-          />
+          {Object.keys(DIAS_LABEL).map((dia, i) => {
+            const tarefasDoDia = tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, dia);
+            return (
+              <SecaoDiaImpressao key={dia} dia={dia} primeiro={i === 0}>
+                <h3>Almoço / Jantar</h3>
+                <TabelaImpressaoHoraEquipe
+                  itens={tarefasDoDia.filter((t) => t.origem === 'almoco' || t.origem === 'jantar')}
+                  comRefeicao
+                />
+              </SecaoDiaImpressao>
+            );
+          })}
         </>
       )}
     </div>
