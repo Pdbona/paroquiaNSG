@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/paroquiaNSG/ejc-app-cronograma/static/css/main.fe03798d.css",
-    "main.js": "/paroquiaNSG/ejc-app-cronograma/static/js/main.0b0ff685.js",
+    "main.js": "/paroquiaNSG/ejc-app-cronograma/static/js/main.e3c7e8ff.js",
     "static/media/nossa-senhora-guadalupe.png": "/paroquiaNSG/ejc-app-cronograma/static/media/nossa-senhora-guadalupe.2f21f750911256fceb53.png",
     "index.html": "/paroquiaNSG/ejc-app-cronograma/index.html",
     "main.fe03798d.css.map": "/paroquiaNSG/ejc-app-cronograma/static/css/main.fe03798d.css.map",
-    "main.0b0ff685.js.map": "/paroquiaNSG/ejc-app-cronograma/static/js/main.0b0ff685.js.map"
+    "main.e3c7e8ff.js.map": "/paroquiaNSG/ejc-app-cronograma/static/js/main.e3c7e8ff.js.map"
   },
   "entrypoints": [
     "static/css/main.fe03798d.css",
-    "static/js/main.0b0ff685.js"
+    "static/js/main.e3c7e8ff.js"
   ]
 }
