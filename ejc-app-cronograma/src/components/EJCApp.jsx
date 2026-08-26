@@ -1315,6 +1315,24 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
   const avisosVisiveis = encontro.avisos.filter((a) => a.expiraEm > Date.now());
   const avisoMovimento = detectarAvisoMovimentoAtivo(itensDia, minAgora);
 
+  // Relógio no cabeçalho (pedido do Pablo) — data por extenso + hora,
+  // sempre a partir de horaAtual (já reflete horaSimulada quando ativo, e
+  // agora anda sozinho graças ao heartbeat de 30s lá em cima no App).
+  const relogioData = new Date(`${horaAtual.dia}T${horaAtual.hora}:00`);
+  const relogioLabel = isNaN(relogioData.getTime())
+    ? ''
+    : relogioData.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }).replace(/^./, (c) => c.toUpperCase());
+
+  // A lista de "próximos momentos" (demais) sempre volta pro topo quando o
+  // momento atual muda — sem isso, se alguém rolou pra frente durante um
+  // teste (só pra espiar o resto do dia), ela ficaria "presa" longe do
+  // topo mesmo depois que o relógio de verdade alcançasse aquele ponto, em
+  // vez de já mostrar o próximo momento logo abaixo do atual/próximo fixos.
+  const listaRolavelRef = useRef(null);
+  useEffect(() => {
+    if (listaRolavelRef.current) listaRolavelRef.current.scrollTop = 0;
+  }, [atual?.id]);
+
   const tarefasDia = useMemo(
     () => tarefasEquipeDoDia(encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaAtivo),
     [encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaAtivo]
@@ -1341,23 +1359,31 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
             </button>
           ))}
         </div>
-        <button onClick={onToggleTemaTela} style={estilos.telaoBtnTema} title="Alternar modo claro/escuro (só nesta tela)">
-          {tema === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          {relogioLabel && (
+            <div style={{ fontSize: 19, opacity: 0.85, textAlign: 'right', lineHeight: 1.2 }}>
+              <div style={{ fontWeight: 700 }}>{relogioLabel}</div>
+              <div style={{ fontSize: 24, fontFamily: "'Playfair Display', serif", color: CORES.dourado }}>{horaAtual.hora}</div>
+            </div>
+          )}
+          <button onClick={onToggleTemaTela} style={estilos.telaoBtnTema} title="Alternar modo claro/escuro (só nesta tela)">
+            {tema === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
+          </button>
+        </div>
       </div>
 
-      <div style={{ ...estilos.telaMetade, paddingTop: 70 }}>
+      <div style={{ ...estilos.telaMetade, paddingTop: 96 }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Encontristas</h2>
         <p style={{ opacity: 0.7, marginTop: -6, fontSize: 22.3 }}>{DIAS_LABEL[diaAtivo]}</p>
         {atual && <MomentoDestaque item={atual} tamanho="grande" cores={cores} />}
         {proximo && <MomentoDestaque item={proximo} tamanho="medio" cores={cores} rotulo="Próximo" />}
-        <div style={{ ...estilos.telaListaRolavel, marginTop: 16, opacity: 0.75 }}>
+        <div ref={listaRolavelRef} style={{ ...estilos.telaListaRolavel, marginTop: 16, opacity: 0.75 }}>
           {demais.map((i) => (
             <LinhaMomentoPequena key={i.id} item={i} />
           ))}
         </div>
       </div>
-      <div style={{ ...estilos.telaMetade, paddingTop: 70, borderLeft: `2px solid ${CORES.dourado}44` }}>
+      <div style={{ ...estilos.telaMetade, paddingTop: 96, borderLeft: `2px solid ${CORES.dourado}44` }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Servos</h2>
         <p style={{ opacity: 0.7, marginTop: -6, fontSize: 22.3 }}>{DIAS_LABEL[diaAtivo]}</p>
         <div style={estilos.telaListaRolavel}>
