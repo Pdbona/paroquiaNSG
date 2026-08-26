@@ -1695,6 +1695,9 @@ function ModoCelular(props) {
                             <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
                             <button onClick={() => imprimirComo('equipe', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe {equipeCoordenada}</button>
                             <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+                            <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
+                            <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
+                            <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
@@ -2993,7 +2996,15 @@ function LinhaCronogramaEditavel({ item, equipes, tarefas, cores, onSalvar, onEx
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <button onClick={() => onSalvar(form)} style={estilos.btnPequeno}>Salvar momento</button>
-        <button onClick={onExcluir} style={{ ...estilos.btnPequeno, background: CORES.terracota }}>Excluir momento</button>
+        <button
+          onClick={() => {
+            // eslint-disable-next-line no-alert
+            if (window.confirm(`Excluir o momento "${item.movimento}"? Essa ação não pode ser desfeita.`)) onExcluir();
+          }}
+          style={{ ...estilos.btnPequeno, background: CORES.terracota }}
+        >
+          Excluir momento
+        </button>
         <button onClick={() => setAberto(false)} style={{ ...estilos.btnPequeno, background: '#888' }}>Fechar</button>
       </div>
 
@@ -3032,7 +3043,15 @@ function TarefaEquipeInline({ tarefa, onSalvar, onExcluir }) {
         onBlur={() => { if (texto.trim() && texto !== tarefa.tarefa) onSalvar({ ...tarefa, tarefa: texto.trim() }); }}
         style={{ ...estilos.input, marginBottom: 0, minHeight: 34, fontFamily: 'inherit', resize: 'vertical', flex: 1 }}
       />
-      <button onClick={onExcluir} style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px', marginTop: 4 }}>×</button>
+      <button
+        onClick={() => {
+          // eslint-disable-next-line no-alert
+          if (window.confirm(`Excluir a tarefa da equipe "${tarefa.equipeNome}"? Essa ação não pode ser desfeita.`)) onExcluir();
+        }}
+        style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px', marginTop: 4 }}
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -3328,7 +3347,11 @@ function AbaCadastroPessoas({ titulo, pessoas, campos, equipes, onSalvar, onExcl
         <div key={p.id} onClick={() => editar(p)} style={{ ...estilos.linhaServoCelular, background: cores.cartao, cursor: 'pointer' }}>
           <span style={{ flex: 1 }}>{p.nome}</span>
           <button
-            onClick={(e) => { e.stopPropagation(); onExcluir(p.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              // eslint-disable-next-line no-alert
+              if (window.confirm(`Excluir ${titulo.slice(0, -1).toLowerCase()} "${p.nome}"? Essa ação não pode ser desfeita.`)) onExcluir(p.id);
+            }}
             style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
           >
             ×
@@ -3386,7 +3409,11 @@ function AbaEquipes({ equipes, servos, onSalvar, onExcluir, cores }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <strong>{e.nome}</strong>
               <button
-                onClick={(ev) => { ev.stopPropagation(); onExcluir(e.id); }}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  // eslint-disable-next-line no-alert
+                  if (window.confirm(`Excluir a equipe "${e.nome}"? Essa ação não pode ser desfeita.`)) onExcluir(e.id);
+                }}
                 style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
               >
                 ×
@@ -3659,7 +3686,15 @@ function LinhaEscalaEditavel({ tarefa, equipes, onSalvar, onExcluir, cores, comD
       )}
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => { onSalvar(form); setAberto(false); }} style={estilos.btnPequeno}>Salvar</button>
-        <button onClick={onExcluir} style={{ ...estilos.btnPequeno, background: CORES.terracota }}>Excluir</button>
+        <button
+          onClick={() => {
+            // eslint-disable-next-line no-alert
+            if (window.confirm(`Excluir esta escala de "${tarefa.equipeNome}" às ${tarefa.hora}? Essa ação não pode ser desfeita.`)) onExcluir();
+          }}
+          style={{ ...estilos.btnPequeno, background: CORES.terracota }}
+        >
+          Excluir
+        </button>
         <button onClick={() => setAberto(false)} style={{ ...estilos.btnPequeno, background: '#888' }}>Fechar</button>
       </div>
     </div>
@@ -3770,7 +3805,11 @@ function AbaEncontristas({ encontristas, onSalvarPessoa, onExcluirPessoa, onFina
           <span style={{ fontSize: 15.8, opacity: 0.6 }}>{p.sala || ''}</span>
           {!confirmandoFinal && (
             <button
-              onClick={(e) => { e.stopPropagation(); onExcluirPessoa(p.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                // eslint-disable-next-line no-alert
+                if (window.confirm(`Excluir a inscrição de "${p.nome}"? Essa ação não pode ser desfeita.`)) onExcluirPessoa(p.id);
+              }}
               style={{ ...estilos.btnPequeno, background: CORES.terracota, padding: '4px 8px' }}
             >
               ×
