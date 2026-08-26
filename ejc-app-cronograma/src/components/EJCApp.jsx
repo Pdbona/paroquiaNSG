@@ -184,7 +184,7 @@ function construirCronogramaSemente() {
 // Coordenadores Gerais e Dirigentes, que aparecem nas escalas de
 // Vigília/Capela Mariana mas não têm coluna própria no cronograma). Semente
 // só entra se "equipes" ainda estiver vazio (não sobrescreve o que o
-// Dirigente já tiver cadastrado/editado).
+// Administrador já tiver cadastrado/editado).
 // ---------------------------------------------------------------------------
 const NOME_EQUIPE = {
   CAFEZINHO: 'Cafezinho', COZINHA: 'Cozinha', MUSICA: 'Música', CIRCULO: 'Círculo',
@@ -424,16 +424,22 @@ function construirCapelaMarianaSemente() {
 
 // ---------------------------------------------------------------------------
 // Funções fixas do G5 (Dirigentes) — mesmo padrão em todo EJC. Cada função
-// recebe 3-4 Servos vinculados (config.dirigentesPorFuncao), TODOS usando a
-// mesma senha compartilhada (config.senhaDirigente) — não há identificação
-// individual de qual dirigente logou, só a função dá acesso completo.
+// recebe 3-4 Servos vinculados (config.dirigentesPorFuncao) — é só uma
+// lista de referência (aparece nas escalas), não dá login sozinha. Se esse
+// grupo precisar de acesso ao app ao vivo, a senha é a da equipe
+// "Dirigentes" (Cadastro > Coordenadores de Equipe), igual qualquer outra
+// equipe — não a senha de Administrador, que é o acesso técnico completo.
 // ---------------------------------------------------------------------------
 const FUNCOES_DIRIGENTE = ['Ficha', 'Montagem', 'Finanças', 'Pós Encontro', 'Palestra'];
 
 // ---------------------------------------------------------------------------
 // CONFIG_PADRAO — senhas de demonstração. TROCAR antes do evento real
-// (Dirigente > Cadastro Geral > Usuários > Senha de Acesso).
-// Servo, Tela e Dirigente usam senha única compartilhada pela função inteira.
+// (Administrador > Cadastro Geral > Usuários > Senha de Acesso).
+// Servo, Tela e Administrador usam senha única compartilhada pela função
+// inteira. "Administrador" é o acesso técnico completo ao app (quem monta o
+// cronograma, cadastra Servos etc.) — diferente dos Dirigentes do G5
+// (dirigentesPorFuncao), que são só uma lista de referência das funções do
+// encontro, sem login próprio.
 // Coordenador de Equipe NÃO tem senha geral — cada equipe tem a sua própria
 // senha (compartilhada só entre os coordenadores daquela equipe), cadastrada
 // em Cadastro > Coordenadores de Equipe (campo "senha" de cada equipe). Só o
@@ -443,19 +449,19 @@ const FUNCOES_DIRIGENTE = ['Ficha', 'Montagem', 'Finanças', 'Pós Encontro', 'P
 const CONFIG_PADRAO = {
   tema: 'dark',
   // Tema exclusivo da Tela (telão) — separado de "tema" (celular: Servo,
-  // Coordenadores, Dirigente) pra alternar um não mudar o outro.
+  // Coordenadores, Administrador) pra alternar um não mudar o outro.
   temaTela: 'dark',
   senhaServo: 'servo',
   senhaTela: 'tela',
-  senhaDirigente: 'dirigente',
+  senhaAdministrador: 'administrador',
   coordenadoresGerais: [
     { servoId: null, nome: 'Coordenador Geral 1', senha: 'geral1' },
     { servoId: null, nome: 'Coordenador Geral 2', senha: 'geral2' },
   ],
   dirigentesPorFuncao: FUNCOES_DIRIGENTE.reduce((acc, f) => ({ ...acc, [f]: [] }), {}),
-  // "Simular data/hora" é ferramenta de teste antes do evento — o Dirigente
-  // desliga isso pro Coordenador Geral quando o encontro já começou de
-  // verdade, pra ninguém mexer em hora simulada sem querer.
+  // "Simular data/hora" é ferramenta de teste antes do evento — o
+  // Administrador desliga isso pro Coordenador Geral quando o encontro já
+  // começou de verdade, pra ninguém mexer em hora simulada sem querer.
   mostrarSimulacao: true,
   // Vibração (Vibration API) do celular dos Coordenadores (Geral e de
   // Equipe) — chega junto com o aviso manual do Coordenador Geral e com o
@@ -492,7 +498,16 @@ function mapearDocParaEncontro(d) {
     tarefasEquipe: d.tarefasEquipe?.length ? d.tarefasEquipe : ENCONTRO_PADRAO.tarefasEquipe,
     capelaMariana: d.capelaMariana?.length ? d.capelaMariana : ENCONTRO_PADRAO.capelaMariana,
     avisos: d.avisos || [],
-    config: { ...CONFIG_PADRAO, ...(d.config || {}) },
+    config: {
+      ...CONFIG_PADRAO,
+      ...(d.config || {}),
+      // Migração (26/08/2026): o campo mudou de nome de senhaDirigente pra
+      // senhaAdministrador. Documentos salvos antes dessa mudança só têm o
+      // nome antigo — sem este fallback, a senha real já cadastrada some e
+      // o Administrador fica sem acesso. Assim que salvar qualquer config
+      // de novo, o campo novo é gravado e este fallback deixa de ser usado.
+      senhaAdministrador: d.config?.senhaAdministrador || d.config?.senhaDirigente || CONFIG_PADRAO.senhaAdministrador,
+    },
   };
 }
 
@@ -586,15 +601,16 @@ function criarAviso(tipo, mensagem, duracaoMs) {
 // Servo (compartilhada) → Tela (compartilhada) → Coordenador de Equipe (a
 // senha é da EQUIPE, não da função — cada equipe tem a sua própria, então a
 // senha já identifica automaticamente qual equipe a pessoa coordena) →
-// Dirigente (compartilhada) → Coordenador Geral (individual, só esse
-// identifica quem logou). Retorna null se não bater com nada.
+// Administrador (compartilhada, acesso técnico completo) → Coordenador
+// Geral (individual, só esse identifica quem logou). Retorna null se não
+// bater com nada.
 function resolverAcessoPorSenha(senha, config, equipes) {
   if (!senha) return null;
   if (senha === config.senhaServo) return { perfil: 'servo', nome: null };
   if (senha === config.senhaTela) return { perfil: 'tela', nome: null };
   const equipe = (equipes || []).find((e) => e.senha && e.senha === senha);
   if (equipe) return { perfil: 'coordenadorEquipe', nome: equipe.nome };
-  if (senha === config.senhaDirigente) return { perfil: 'dirigente', nome: null };
+  if (senha === config.senhaAdministrador) return { perfil: 'administrador', nome: null };
   const cg = (config.coordenadoresGerais || []).find((c) => c.senha === senha);
   if (cg) return { perfil: 'coordenadorGeral', nome: cg.nome };
   return null;
@@ -637,7 +653,7 @@ function resolverTarefaEquipe(tarefa, cronogramaPorId) {
 // Vigília, Almoço, Jantar e Capela Mariana não têm duração de verdade na
 // fonte — só "a partir de tal horário". O fim de cada plantão é sempre
 // CALCULADO aqui como "até começar o próximo plantão da mesma escala",
-// nunca guardado, pra continuar certo mesmo depois que o Dirigente adicionar
+// nunca guardado, pra continuar certo mesmo depois que o Administrador adicionar
 // ou editar plantões pelo Cadastro. Cada origem forma sua própria linha do
 // tempo independente (a Vigília de uma equipe não "corta" o plantão de
 // Almoço de outra, mesmo que ambos apareçam juntos na mesma lista final).
@@ -747,7 +763,7 @@ function agruparTarefasPorHora(tarefas) {
 // Componente principal
 // ============================================================================
 export default function EJCApp() {
-  const [perfil, setPerfil] = useState(null); // 'servo' | 'coordenadorGeral' | 'coordenadorEquipe' | 'dirigente' | 'tela'
+  const [perfil, setPerfil] = useState(null); // 'servo' | 'coordenadorGeral' | 'coordenadorEquipe' | 'administrador' | 'tela'
   const [usuarioLogado, setUsuarioLogado] = useState(null); // nome do Coordenador Geral OU nome da equipe (Coordenador de Equipe)
   const [mostrarInscricao, setMostrarInscricao] = useState(false);
   const [erroLogin, setErroLogin] = useState('');
@@ -761,7 +777,7 @@ export default function EJCApp() {
 
   // Assina o documento do Firestore em tempo real. Se o Firebase ainda não
   // estiver configurado (sem projeto criado), cai silenciosamente para os
-  // dados-semente locais e sinaliza "offline" para o coordenador/dirigente.
+  // dados-semente locais e sinaliza "offline" para o coordenador/administrador.
   useEffect(() => {
     let ativo = true;
     // Erro de PERMISSÃO (credencial inválida) dispara o callback de erro do
@@ -899,7 +915,7 @@ export default function EJCApp() {
   }
 
   // Edição de um momento já existente feita em Cadastro > Cronograma (hora,
-  // duração e/ou nome, direto na tabela do Dirigente) — precisa da mesma
+  // duração e/ou nome, direto na tabela do Administrador) — precisa da mesma
   // cascata de aplicarEdicaoComCascata que o modal Ao Vivo usa, senão só
   // aquele item muda e todo o resto do dia fica com o horário desalinhado
   // (era exatamente esse o bug: handleSalvarCronogramaItem sozinho só
@@ -1176,7 +1192,7 @@ function TelaLogin({ branding, erro, onEntrar }) {
 
 // ============================================================================
 // Tela: Inscrição pública do Encontrista — sem senha, sem acesso ao sistema.
-// Cria um registro pendente que os Dirigentes aprovam/rejeitam depois.
+// Cria um registro pendente que o Administrador aprova/rejeita depois.
 // ============================================================================
 function TelaInscricaoPublica({ branding, onInscrever, onVoltar }) {
   const [form, setForm] = useState({ nome: '', idade: '', responsavel: '', contato: '', restricoes: '', camisa: '' });
@@ -1266,7 +1282,7 @@ function TelaInscricaoPublica({ branding, onInscrever, onVoltar }) {
 // ============================================================================
 function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
   // Tema próprio da Tela — independente do tema usado no celular (Servo,
-  // Coordenadores, Dirigente). Alternar aqui não deve mudar a tela de mais
+  // Coordenadores, Administrador). Alternar aqui não deve mudar a tela de mais
   // ninguém, só o telão.
   const tema = encontro.config.temaTela;
   const cores = tema === 'dark'
@@ -1554,11 +1570,11 @@ const MENU_LATERAL = [
 ];
 
 // ============================================================================
-// Tela: Modo Celular (Servo / Coordenador / Dirigente)
+// Tela: Modo Celular (Servo / Coordenador / Administrador)
 // - Servo: só visualização (cronogramas + avisos), sem abas.
 // - Coordenador: só "Encontro" (ao vivo) — edita momentos (cascata), envia
 //   avisos, tema.
-// - Dirigente: dois grandes blocos —
+// - Administrador: acesso técnico completo, dois grandes blocos —
 //     CADASTRO GERAL: barra lateral fixa (vira drawer recolhível só no
 //       celular) com Usuários / Encontro / Encontristas
 //     ENCONTRO: visão ao vivo, somente leitura
@@ -1567,13 +1583,13 @@ function ModoCelular(props) {
   const { perfil, usuarioLogado, encontro, branding, onSair, horaAtual } = props;
   const isCoordenadorGeral = perfil === 'coordenadorGeral';
   const isCoordenadorEquipe = perfil === 'coordenadorEquipe';
-  const isDirigente = perfil === 'dirigente';
+  const isAdministrador = perfil === 'administrador';
   // Alternar tema fica disponível pros dois — só a edição de fato da
   // cascata de momento (podeEditar, passado pro PainelAoVivo mais abaixo) é
   // exclusiva do Coordenador Geral.
   const podeEditarAoVivo = isCoordenadorGeral || isCoordenadorEquipe;
   const equipeCoordenada = isCoordenadorEquipe ? usuarioLogado : '';
-  const [abaTopo, setAbaTopo] = useState('cadastro'); // 'cadastro' | 'encontro' — só Dirigente usa
+  const [abaTopo, setAbaTopo] = useState('cadastro'); // 'cadastro' | 'encontro' — só Administrador usa
   const [secaoAtiva, setSecaoAtiva] = useState('servos'); // folha ativa dentro de MENU_LATERAL
   const [menuAberto, setMenuAberto] = useState(false); // só controla o drawer no celular
   const tema = encontro.config.tema;
@@ -1584,15 +1600,15 @@ function ModoCelular(props) {
   const rotuloPerfil =
     perfil === 'coordenadorGeral' ? `Coordenador Geral — ${usuarioLogado}` :
     perfil === 'coordenadorEquipe' ? `Coordenador de Equipe — ${usuarioLogado}` :
-    perfil === 'dirigente' ? 'Dirigente' :
+    perfil === 'administrador' ? 'Administrador' :
     'Servo';
 
-  // Dirigente em Cadastro trabalha com listas maiores — marca d'água discreta.
-  const mostrarMarcaDagua = isDirigente && abaTopo === 'cadastro';
+  // Administrador em Cadastro trabalha com listas maiores — marca d'água discreta.
+  const mostrarMarcaDagua = isAdministrador && abaTopo === 'cadastro';
   // A visão "Ao Vivo" (Encontristas + Servos lado a lado) precisa de mais
   // largura que as telas de Cadastro pra caber as duas colunas quando aberta
   // num computador — ver PainelAoVivo, que usa CSS grid responsivo.
-  const mostrandoAoVivo = !isDirigente || abaTopo === 'encontro';
+  const mostrandoAoVivo = !isAdministrador || abaTopo === 'encontro';
 
   // Estado de impressão mora aqui (não em PainelAoVivo) — o botão agora fica
   // no cabeçalho, abaixo do Sair, disponível pra qualquer perfil que veja o
@@ -1644,7 +1660,7 @@ function ModoCelular(props) {
 
   // Cabeçalho fixo — não pode sumir ao rolar a tela, em nenhum perfil. Mede
   // a própria altura (em vez de um valor fixo no código) porque ela varia
-  // conforme o perfil (barra de abas só do Dirigente) e o estado (aviso de
+  // conforme o perfil (barra de abas só do Administrador) e o estado (aviso de
   // offline aparece/some) — PainelAoVivo usa essa altura pra grudar a faixa
   // de dias/impressão logo abaixo, sem sobrepor nem deixar buraco.
   const headerRef = useRef(null);
@@ -1822,7 +1838,7 @@ function ModoCelular(props) {
         </div>
         <div style={{ height: 4, background: CORES.dourado }} />
 
-        {isDirigente && (
+        {isAdministrador && (
           <div className="ejc-barra-topo" style={estilos.tabNav}>
             <button className="ejc-btn-hamburguer" onClick={() => setMenuAberto((m) => !m)} style={{ ...estilos.tabBtn, fontSize: 18.4, fontWeight: 700 }}>
               ☰ {abaTopo === 'cadastro' ? tituloSecaoAtiva : 'Cadastro Geral'}
@@ -1836,7 +1852,7 @@ function ModoCelular(props) {
           </div>
         )}
 
-        {props.offline && (podeEditarAoVivo || isDirigente) && (
+        {props.offline && (podeEditarAoVivo || isAdministrador) && (
           <div style={estilos.avisoOffline}>
             ⚠️ Firebase ainda não configurado (ou sem conexão) — as alterações ficam salvas só neste aparelho, nesta sessão.
           </div>
@@ -1844,7 +1860,7 @@ function ModoCelular(props) {
       </div>
 
       <div className="ejc-layout-cadastro">
-        {isDirigente && abaTopo === 'cadastro' && (
+        {isAdministrador && abaTopo === 'cadastro' && (
           <>
             {menuAberto && <div className="ejc-sidebar-overlay" onClick={() => setMenuAberto(false)} />}
             <div
@@ -1875,7 +1891,7 @@ function ModoCelular(props) {
         )}
 
         <div className="ejc-conteudo-cadastro" style={{ padding: 16, maxWidth: mostrandoAoVivo ? 1200 : 1100, margin: '0 auto', position: 'relative', zIndex: 1, width: '100%' }}>
-          {!isDirigente && (
+          {!isAdministrador && (
             <PainelAoVivo
               {...props}
               podeEditar={isCoordenadorGeral}
@@ -1889,7 +1905,7 @@ function ModoCelular(props) {
             />
           )}
 
-          {isDirigente && abaTopo === 'encontro' && (
+          {isAdministrador && abaTopo === 'encontro' && (
             <PainelAoVivo
               {...props}
               podeEditar={false}
@@ -1903,7 +1919,7 @@ function ModoCelular(props) {
             />
           )}
 
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'servos' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'servos' && (
             <AbaCadastroPessoas
               titulo="Servos"
               pessoas={encontro.servos}
@@ -1914,7 +1930,7 @@ function ModoCelular(props) {
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'coordenadoresGerais' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'coordenadoresGerais' && (
             <AbaCoordenadores
               servos={encontro.servos}
               coordenadores={encontro.config.coordenadoresGerais}
@@ -1922,7 +1938,7 @@ function ModoCelular(props) {
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'coordenadoresEquipe' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'coordenadoresEquipe' && (
             <AbaCoordenadoresEquipe
               equipes={encontro.equipes}
               servos={encontro.servos}
@@ -1930,7 +1946,7 @@ function ModoCelular(props) {
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'dirigentes' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'dirigentes' && (
             <AbaDirigentes
               servos={encontro.servos}
               dirigentesPorFuncao={encontro.config.dirigentesPorFuncao}
@@ -1938,21 +1954,21 @@ function ModoCelular(props) {
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'acessos' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'acessos' && (
             <AbaAcessosGerais
               senhaServo={encontro.config.senhaServo}
               senhaTela={encontro.config.senhaTela}
-              senhaDirigente={encontro.config.senhaDirigente}
+              senhaAdministrador={encontro.config.senhaAdministrador}
               mostrarSimulacao={encontro.config.mostrarSimulacao}
               vibracaoAtiva={encontro.config.vibracaoAtiva}
               onSalvarConfig={props.onSalvarConfig}
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'ejc' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'ejc' && (
             <AbaCronograma {...props} cores={cores} />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'equipes' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'equipes' && (
             <AbaEquipes
               equipes={encontro.equipes}
               servos={encontro.servos}
@@ -1961,7 +1977,7 @@ function ModoCelular(props) {
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'escalas' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'escalas' && (
             <AbaEscalas
               encontro={encontro}
               onSalvarPessoa={props.onSalvarPessoa}
@@ -1969,7 +1985,7 @@ function ModoCelular(props) {
               cores={cores}
             />
           )}
-          {isDirigente && abaTopo === 'cadastro' && secaoAtiva === 'encontristas' && (
+          {isAdministrador && abaTopo === 'cadastro' && secaoAtiva === 'encontristas' && (
             <AbaEncontristas
               encontristas={encontro.encontristas}
               onSalvarPessoa={(p) => props.onSalvarPessoa('encontristas', p)}
@@ -2193,8 +2209,9 @@ function AbaDirigentes({ servos, dirigentesPorFuncao, onSalvarConfig, cores }) {
     <div>
       <h3 style={{ marginTop: 0 }}>Dirigentes (G5)</h3>
       <p style={{ fontSize: 15.8, opacity: 0.7 }}>
-        Vincule 3-4 Servos a cada função. Todos os dirigentes entram com a mesma senha compartilhada (aba
-        Senha de Acesso), com acesso completo ao Cadastro Geral — não há identificação individual.
+        Vincule 3-4 Servos a cada função — é só uma lista de referência (aparece nas escalas), não dá
+        login sozinha. Se este grupo precisar acessar o app ao vivo, use a senha da equipe "Dirigentes"
+        (aba Coordenadores de Equipe) — a senha de Administrador é só pra quem monta o cadastro do encontro.
       </p>
       <div style={estilos.gridCartoes}>
         {FUNCOES_DIRIGENTE.map((funcao) => {
@@ -2231,13 +2248,13 @@ function AbaDirigentes({ servos, dirigentesPorFuncao, onSalvarConfig, cores }) {
   );
 }
 
-function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, mostrarSimulacao, vibracaoAtiva, onSalvarConfig, cores }) {
+function AbaAcessosGerais({ senhaServo, senhaTela, senhaAdministrador, mostrarSimulacao, vibracaoAtiva, onSalvarConfig, cores }) {
   const [sServo, setSServo] = useState(senhaServo);
   const [sTela, setSTela] = useState(senhaTela);
-  const [sDirigente, setSDirigente] = useState(senhaDirigente);
+  const [sAdministrador, setSAdministrador] = useState(senhaAdministrador);
   useEffect(() => setSServo(senhaServo), [senhaServo]);
   useEffect(() => setSTela(senhaTela), [senhaTela]);
-  useEffect(() => setSDirigente(senhaDirigente), [senhaDirigente]);
+  useEffect(() => setSAdministrador(senhaAdministrador), [senhaAdministrador]);
 
   return (
     <div>
@@ -2250,13 +2267,13 @@ function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, mostrarSimula
       <div style={{ ...estilos.cartaoConfig, background: cores.cartao }}>
         <label style={estilos.label}>Senha do Servo (compartilhada entre todos os servos)</label>
         <input type="text" value={sServo} onChange={(e) => setSServo(e.target.value)} style={estilos.input} />
-        <label style={estilos.label}>Senha do Dirigente (compartilhada entre todos, acesso completo ao Cadastro Geral)</label>
-        <input type="text" value={sDirigente} onChange={(e) => setSDirigente(e.target.value)} style={estilos.input} />
+        <label style={estilos.label}>Senha do Administrador (compartilhada entre todos, acesso técnico completo ao Cadastro Geral)</label>
+        <input type="text" value={sAdministrador} onChange={(e) => setSAdministrador(e.target.value)} style={estilos.input} />
         <label style={estilos.label}>Senha da Tela / Telão (um dispositivo, não uma pessoa)</label>
         <input type="text" value={sTela} onChange={(e) => setSTela(e.target.value)} style={estilos.input} />
       </div>
       <button
-        onClick={() => onSalvarConfig({ senhaServo: sServo, senhaTela: sTela, senhaDirigente: sDirigente })}
+        onClick={() => onSalvarConfig({ senhaServo: sServo, senhaTela: sTela, senhaAdministrador: sAdministrador })}
         style={estilos.btnEntrar}
       >
         Salvar Senhas
@@ -2297,7 +2314,7 @@ function AbaAcessosGerais({ senhaServo, senhaTela, senhaDirigente, mostrarSimula
 }
 
 // Marca d'água grande e discreta, usada nas telas de "visão maior" (telão e
-// Cadastro do Dirigente) — imagem centralizada, baixa opacidade, sem cliques.
+// Cadastro do Administrador) — imagem centralizada, baixa opacidade, sem cliques.
 function MarcaDaguaImagem({ opacidade = 0.12 }) {
   return (
     <img
@@ -2474,8 +2491,8 @@ function PainelAoVivo(props) {
   // Painel de equipe (coluna "Servos") não aparece pro Servo — ele entra e
   // vê só o cronograma do Encontrista. Coordenador de Equipe já sabe qual
   // equipe é a sua desde o login (a senha é da equipe); Coordenador Geral e
-  // Dirigente veem todas as equipes.
-  const mostrarPainelEquipe = perfil === 'coordenadorGeral' || perfil === 'coordenadorEquipe' || perfil === 'dirigente';
+  // Administrador veem todas as equipes.
+  const mostrarPainelEquipe = perfil === 'coordenadorGeral' || perfil === 'coordenadorEquipe' || perfil === 'administrador';
 
   // diaSelecionado, modoImpressao e equipeImpressao agora vivem em
   // ModoCelular (prop controlada) — o botão de imprimir mudou pro
@@ -2494,7 +2511,7 @@ function PainelAoVivo(props) {
     [encontro.tarefasEquipe, encontro.capelaMariana, encontro.cronograma, diaSelecionado]
   );
   // Coordenador de Equipe só vê a própria equipe — os demais perfis
-  // (Coordenador Geral, Dirigente) veem todas.
+  // (Coordenador Geral, Administrador) veem todas.
   const tarefasDiaVisivel =
     isCoordenadorEquipe && equipeCoordenada ? tarefasDia.filter((t) => t.equipeNome === equipeCoordenada) : tarefasDia;
   const { atuais: tarefasAtuais, proximas: tarefasProximas } = classificarTarefasEquipe(tarefasDiaVisivel, minAgora);
@@ -2510,7 +2527,7 @@ function PainelAoVivo(props) {
     setPainelAberto((atual) => (atual === nome ? null : nome));
   }
 
-  // "Simular data/hora" é ferramenta de teste — o Dirigente desliga isso
+  // "Simular data/hora" é ferramenta de teste — o Administrador desliga isso
   // pra todo mundo assim que o encontro de verdade começa (Cadastro >
   // Senha de Acesso). Default true (undefined = documento antigo).
   const mostrarSimulacao = encontro.config.mostrarSimulacao !== false;
@@ -3018,7 +3035,7 @@ function ModalEditarMomento({ item, onSalvar, onFechar }) {
 
 // ============================================================================
 // Aba Cadastro > Cronograma (CRUD completo, inclusive equipes/tarefa servos)
-// — acesso exclusivo do Dirigente
+// — acesso exclusivo do Administrador
 // ============================================================================
 function AbaCronograma({ encontro, branding, onSalvarCronogramaItem, onEditarCronogramaItemComCascata, onExcluirCronogramaItem, onSalvarPessoa, onExcluirPessoa, cores }) {
   const [diaSelecionado, setDiaSelecionado] = useState(Object.keys(DIAS_LABEL)[0]);
@@ -3873,7 +3890,7 @@ function LinhaEscalaEditavel({ tarefa, equipes, onSalvar, onExcluir, cores, comD
 
 // ============================================================================
 // Aba Cadastro > Encontristas — fila de inscrições públicas (aprovar/rejeitar)
-// + cadastro manual direto pelo Dirigente
+// + cadastro manual direto pelo Administrador
 // ============================================================================
 const CAMPOS_ENCONTRISTA = [
   { key: 'nome', label: 'Nome completo', tipo: 'text', obrigatorio: true },
