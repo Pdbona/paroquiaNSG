@@ -1586,6 +1586,17 @@ function ModoCelular(props) {
     setTimeout(() => window.print(), 50);
   }
 
+  // Aviso manual (só Coordenador Geral) — mesmo padrão do botão de
+  // imprimir: ícone no cabeçalho, ao lado da impressora.
+  const [textoAviso, setTextoAviso] = useState('');
+  const [painelAvisoAberto, setPainelAvisoAberto] = useState(false);
+  function enviarAviso() {
+    if (!textoAviso.trim()) return;
+    props.onEnviarAviso(textoAviso.trim());
+    setTextoAviso('');
+    setPainelAvisoAberto(false);
+  }
+
   function escolherSecao(k) {
     setAbaTopo('cadastro');
     setSecaoAtiva(k);
@@ -1635,62 +1646,95 @@ function ModoCelular(props) {
               <button onClick={onSair} style={estilos.btnSairHeader}>Sair</button>
             </div>
 
-            {/* Botão de imprimir — só o ícone, logo abaixo do Sair. Aparece
-                sempre que o Ao Vivo (PainelAoVivo) está na tela: todo perfil
-                que o vê tem algum tipo de impressão disponível. */}
+            {/* Botões de imprimir e aviso — só ícone, logo abaixo do Sair.
+                Imprimir aparece sempre que o Ao Vivo (PainelAoVivo) está na
+                tela: todo perfil que o vê tem algum tipo de impressão
+                disponível. Aviso é exclusivo do Coordenador Geral. */}
             {mostrandoAoVivo && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setPainelImprimirAberto((a) => !a)}
-                  title="Imprimir"
-                  style={estilos.btnIconeImprimir}
-                >
-                  🖨️
-                </button>
-                {painelImprimirAberto && (
-                  <>
-                    <div onClick={() => setPainelImprimirAberto(false)} style={estilos.backdropPainel} />
-                    <div style={{ ...estilos.painelSuspenso, background: cores.cartao, right: 0, left: 'auto' }}>
-                      <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir — {DIAS_LABEL[diaSelecionado]}</label>
-                      {isCoordenadorGeral ? (
-                        <>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setPainelImprimirAberto((a) => !a)}
+                    title="Imprimir"
+                    style={estilos.btnIconeHeader}
+                  >
+                    🖨️
+                  </button>
+                  {painelImprimirAberto && (
+                    <>
+                      <div onClick={() => setPainelImprimirAberto(false)} style={estilos.backdropPainel} />
+                      <div style={{ ...estilos.painelSuspenso, background: cores.cartao, right: 0, left: 'auto' }}>
+                        <label style={{ fontSize: 15.8, opacity: 0.7 }}>Imprimir — {DIAS_LABEL[diaSelecionado]}</label>
+                        {isCoordenadorGeral ? (
+                          <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                              <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
+                              <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
+                              <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
+                              <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
+                              <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
+                            </div>
+                            <select
+                              value={equipeImpressao}
+                              onChange={(e) => setEquipeImpressao(e.target.value)}
+                              style={{ ...estilos.input, marginTop: 8 }}
+                            >
+                              <option value="">Escolha uma equipe…</option>
+                              {encontro.equipes.map((eq) => (
+                                <option key={eq.id} value={eq.nome}>{eq.nome}</option>
+                              ))}
+                            </select>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <button onClick={() => equipeImpressao && imprimirComo('equipe')} style={estilos.btnPequeno}>🖨️ Imprimir equipe</button>
+                              <button onClick={() => equipeImpressao && imprimirComo('equipe3dias')} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+                            </div>
+                          </>
+                        ) : isCoordenadorEquipe && equipeCoordenada ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                             <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
                             <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
-                            <button onClick={() => imprimirComo('vigilia')} style={estilos.btnPequeno}>🖨️ Vigília</button>
-                            <button onClick={() => imprimirComo('capela')} style={estilos.btnPequeno}>🖨️ Capela Mariana</button>
-                            <button onClick={() => imprimirComo('refeicoes')} style={estilos.btnPequeno}>🖨️ Almoço/Jantar</button>
+                            <button onClick={() => imprimirComo('equipe', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe {equipeCoordenada}</button>
+                            <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
                           </div>
-                          <select
-                            value={equipeImpressao}
-                            onChange={(e) => setEquipeImpressao(e.target.value)}
-                            style={{ ...estilos.input, marginTop: 8 }}
-                          >
-                            <option value="">Escolha uma equipe…</option>
-                            {encontro.equipes.map((eq) => (
-                              <option key={eq.id} value={eq.nome}>{eq.nome}</option>
-                            ))}
-                          </select>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <button onClick={() => equipeImpressao && imprimirComo('equipe')} style={estilos.btnPequeno}>🖨️ Imprimir equipe</button>
-                            <button onClick={() => equipeImpressao && imprimirComo('equipe3dias')} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                            <button onClick={() => imprimirComo('padrao')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
+                            <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
                           </div>
-                        </>
-                      ) : isCoordenadorEquipe && equipeCoordenada ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                          <button onClick={() => imprimirComo('encontrista')} style={estilos.btnPequeno}>🖨️ Encontrista</button>
-                          <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
-                          <button onClick={() => imprimirComo('equipe', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe {equipeCoordenada}</button>
-                          <button onClick={() => imprimirComo('equipe3dias', equipeCoordenada)} style={estilos.btnPequeno}>🖨️ Equipe (3 dias)</button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {isCoordenadorGeral && (
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setPainelAvisoAberto((a) => !a)}
+                      title="Enviar aviso"
+                      style={estilos.btnIconeHeader}
+                    >
+                      📢
+                    </button>
+                    {painelAvisoAberto && (
+                      <>
+                        <div onClick={() => setPainelAvisoAberto(false)} style={estilos.backdropPainel} />
+                        <div style={{ ...estilos.painelSuspenso, background: cores.cartao, right: 0, left: 'auto' }}>
+                          <label style={{ fontSize: 15.8, opacity: 0.7 }}>Enviar aviso manual (aparece por 20s p/ Servos + Coordenadores + Telão)</label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                            <input
+                              type="text"
+                              placeholder='Ex: "Chamar João na recepção"'
+                              value={textoAviso}
+                              onChange={(e) => setTextoAviso(e.target.value)}
+                              style={{ ...estilos.input, marginBottom: 0 }}
+                            />
+                            <button onClick={enviarAviso} style={estilos.btnPequeno}>Enviar</button>
+                          </div>
                         </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                          <button onClick={() => imprimirComo('padrao')} style={estilos.btnPequeno}>🖨️ Imprimir</button>
-                          <button onClick={() => imprimirComo('encontrista3dias')} style={estilos.btnPequeno}>🖨️ Encontrista (3 dias)</button>
-                        </div>
-                      )}
-                    </div>
-                  </>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -2310,12 +2354,10 @@ function PainelAoVivo(props) {
   const momentoEncontristasAtivo = tarefasAtuais.find((t) => ehEquipeEncontristas(t.equipeNome));
 
   const [editando, setEditando] = useState(null);
-  const [textoAviso, setTextoAviso] = useState('');
   const [simInput, setSimInput] = useState(props.horaSimulada || '');
-  // Simulação e aviso manual moram atrás de um botão no canto — só um
-  // desses painéis fica aberto por vez (impressão tem o próprio estado, lá
-  // no cabeçalho, em ModoCelular).
-  const [painelAberto, setPainelAberto] = useState(null); // null | 'simular' | 'aviso'
+  // Simulação mora atrás de um botão no canto (impressão e aviso manual têm
+  // o próprio estado, lá no cabeçalho, em ModoCelular).
+  const [painelAberto, setPainelAberto] = useState(null); // null | 'simular'
   function alternarPainel(nome) {
     setPainelAberto((atual) => (atual === nome ? null : nome));
   }
@@ -2403,41 +2445,6 @@ function PainelAoVivo(props) {
                         <button onClick={() => { props.onSetHoraSimulada(simInput); setPainelAberto(null); }} style={estilos.btnPequeno}>Aplicar</button>
                         <button onClick={() => { setSimInput(''); props.onSetHoraSimulada(''); setPainelAberto(null); }} style={estilos.btnPequeno}>Real</button>
                       </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {isCoordenadorGeral && (
-            <div style={{ position: 'relative' }}>
-              <button onClick={() => alternarPainel('aviso')} style={estilos.btnPequeno}>📢 Aviso</button>
-              {painelAberto === 'aviso' && (
-                <>
-                  <div onClick={() => setPainelAberto(null)} style={estilos.backdropPainel} />
-                  <div style={{ ...estilos.painelSuspenso, background: cores.cartao }}>
-                    <label style={{ fontSize: 15.8, opacity: 0.7 }}>Enviar aviso manual (aparece por 20s p/ Servos + Coordenadores + Telão)</label>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
-                      <input
-                        type="text"
-                        placeholder='Ex: "Chamar João na recepção"'
-                        value={textoAviso}
-                        onChange={(e) => setTextoAviso(e.target.value)}
-                        style={{ ...estilos.input, marginBottom: 0 }}
-                      />
-                      <button
-                        onClick={() => {
-                          if (textoAviso.trim()) {
-                            props.onEnviarAviso(textoAviso.trim());
-                            setTextoAviso('');
-                            setPainelAberto(null);
-                          }
-                        }}
-                        style={estilos.btnPequeno}
-                      >
-                        Enviar
-                      </button>
                     </div>
                   </div>
                 </>
@@ -4030,9 +4037,9 @@ const estilos = {
   chipDia: { padding: '6px 12px', borderRadius: 20, border: `1px solid ${CORES.dourado}66`, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 17 },
   cartaoConfig: { padding: 14, borderRadius: 10, marginBottom: 14 },
   btnPequeno: { padding: '8px 14px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 17 },
-  // Botão de imprimir do cabeçalho — só ícone, mais compacto que btnPequeno
-  // (que leva texto ao lado).
-  btnIconeImprimir: { padding: '7px 11px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 18, lineHeight: 1 },
+  // Botões do cabeçalho (imprimir, aviso) — só ícone, mais compactos que
+  // btnPequeno (que leva texto ao lado).
+  btnIconeHeader: { padding: '7px 11px', background: CORES.verde, color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 18, lineHeight: 1 },
   // Painel suspenso (Imprimir/Simular/Aviso) — abre ancorado no botão que o
   // disparou, com um backdrop invisível por trás pra fechar ao clicar fora.
   painelSuspenso: {
