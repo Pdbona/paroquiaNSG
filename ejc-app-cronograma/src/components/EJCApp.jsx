@@ -1521,25 +1521,28 @@ function LinhaMomentoPequena({ item }) {
 // já que equipes diferentes fazem coisas diferentes no mesmo instante).
 // A equipe "Encontristas" (vinda da Capela Mariana) ganha estilo próprio,
 // pra chamar atenção — não é uma tarefa de servo, é um momento especial.
-// Lista com "ver mais" — mostra só os N primeiros itens e revela o resto sob
-// clique, pra não lotar a tela em cronogramas longos. Sem uso em telas sem
-// interação (Telão), que preferem rolagem vertical natural.
-function ListaComVerMais({ itens, max = 5, renderItem, corBtn }) {
-  const [expandido, setExpandido] = useState(false);
-  const visiveis = expandido ? itens : itens.slice(0, max);
-  const restantes = itens.length - visiveis.length;
+// Lista com rolagem própria (altura limitada) que some sozinha de volta
+// pro topo depois de um tempo parada — pedido do Pablo pra Servo/
+// Coordenadores funcionarem igual à Tela: o momento atual/próximo (que
+// ficam FORA desta lista, acima dela) sempre visíveis sem precisar rolar
+// nada, e dá pra rolar aqui dentro só pra espiar o resto do dia — depois
+// de ~8s parado, volta sozinha pro topo. Substituiu o antigo
+// "ListaComVerMais" (toque pra expandir), que exigia interação manual toda
+// vez; a Tela já não usava esse padrão, só o celular.
+function ListaAutoRolavel({ itens, renderItem, maxHeight = '46vh' }) {
+  const ref = useRef(null);
+  const timerRef = useRef(null);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+  function agendarReset() {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (ref.current) ref.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 8000);
+  }
   return (
-    <>
-      {visiveis.map(renderItem)}
-      {restantes > 0 && (
-        <button
-          onClick={() => setExpandido(true)}
-          style={{ background: 'none', border: 'none', color: corBtn || CORES.dourado, cursor: 'pointer', fontSize: 17, padding: '6px 0', textAlign: 'left' }}
-        >
-          Ver mais {restantes} →
-        </button>
-      )}
-    </>
+    <div ref={ref} onScroll={agendarReset} style={{ maxHeight, overflowY: 'auto' }}>
+      {itens.map(renderItem)}
+    </div>
   );
 }
 
@@ -2809,9 +2812,8 @@ function PainelAoVivo(props) {
             {proximo && (
               <LinhaMomentoCelular item={proximo} nivel="proximo" cores={cores} editavel={podeEditar} onEditar={() => setEditando(proximo)} />
             )}
-            <ListaComVerMais
+            <ListaAutoRolavel
               itens={demais}
-              max={5}
               renderItem={(item) => (
                 <LinhaMomentoCelular key={item.id} item={item} cores={cores} editavel={podeEditar} onEditar={() => setEditando(item)} />
               )}
@@ -2834,9 +2836,8 @@ function PainelAoVivo(props) {
                 {tarefasAtuais.map((t) => (
                   <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque cores={cores} />
                 ))}
-                <ListaComVerMais
+                <ListaAutoRolavel
                   itens={tarefasProximas}
-                  max={5}
                   renderItem={(t) => <LinhaTarefaEquipeCelular key={t.id} tarefa={t} destaque={false} cores={cores} />}
                 />
               </div>
@@ -2845,9 +2846,8 @@ function PainelAoVivo(props) {
               // suas equipes lado a lado (rolagem horizontal própria).
               <div>
                 {tarefasAtuais.length > 0 && <FaixaHorarioEquipes rotulo="Agora" itens={tarefasAtuais} destaque cores={cores} />}
-                <ListaComVerMais
+                <ListaAutoRolavel
                   itens={gruposProximas}
-                  max={5}
                   renderItem={(g, i) => (
                     <FaixaHorarioEquipes key={g.hora} rotulo={g.hora} itens={g.itens} destaque={i === 0 && tarefasAtuais.length === 0} cores={cores} />
                   )}
