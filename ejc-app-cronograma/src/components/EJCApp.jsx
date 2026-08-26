@@ -857,10 +857,23 @@ export default function EJCApp() {
     }
   }, []);
 
+  // Heartbeat central (30s) — sem isso, horaAtual só recalcula quando
+  // horaSimulada muda; a Tela (telão) não tem esse controle e não manda
+  // avisos sozinha, então o "Agora"/"Próximo" do cronograma podia ficar
+  // parado por horas (só avançava se um aviso chegasse a expirar, de
+  // efeito colateral). BUG relatado 26/08/2026: painel "Cronograma —
+  // Encontristas" da Tela travado sempre no mesmo horário.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
+
   const horaAtual = useMemo(() => {
     const d = agoraComoData(horaSimulada);
     return dataParaDiaHora(d);
-  }, [horaSimulada]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horaSimulada, tick]);
 
   // pruning periódico de avisos expirados (evita crescer o documento à toa)
   useEffect(() => {
@@ -1338,8 +1351,8 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
         <p style={{ opacity: 0.7, marginTop: -6, fontSize: 22.3 }}>{DIAS_LABEL[diaAtivo]}</p>
         {atual && <MomentoDestaque item={atual} tamanho="grande" cores={cores} />}
         {proximo && <MomentoDestaque item={proximo} tamanho="medio" cores={cores} rotulo="Próximo" />}
-        <div style={{ marginTop: 16, opacity: 0.75 }}>
-          {demais.slice(0, 6).map((i) => (
+        <div style={{ ...estilos.telaListaRolavel, marginTop: 16, opacity: 0.75 }}>
+          {demais.map((i) => (
             <LinhaMomentoPequena key={i.id} item={i} />
           ))}
         </div>
@@ -1347,7 +1360,7 @@ function ModoTela({ encontro, horaAtual, branding, onSair, onToggleTemaTela }) {
       <div style={{ ...estilos.telaMetade, paddingTop: 70, borderLeft: `2px solid ${CORES.dourado}44` }}>
         <h2 style={{ ...estilos.telaTituloColuna, color: CORES.dourado }}>Cronograma — Servos</h2>
         <p style={{ opacity: 0.7, marginTop: -6, fontSize: 22.3 }}>{DIAS_LABEL[diaAtivo]}</p>
-        <div style={{ overflowY: 'auto', maxHeight: '72vh' }}>
+        <div style={estilos.telaListaRolavel}>
           {tarefasAtuais.length === 0 && tarefasProximas.length === 0 && (
             <p style={{ opacity: 0.5, fontSize: 18.4 }}>Nenhuma tarefa de equipe cadastrada pra este momento.</p>
           )}
@@ -4237,7 +4250,12 @@ const estilos = {
     position: 'relative',
     overflow: 'hidden',
   },
-  telaMetade: { flex: 1, padding: '32px 30px', overflow: 'hidden', position: 'relative', zIndex: 1 },
+  // display:flex column — o cabeçalho (título/dia/Agora/Próximo) fica de
+  // altura natural e a lista de baixo (.telaListaRolavel) ocupa o resto e
+  // rola sozinha (minHeight:0 é o que permite um filho flex encolher pra
+  // caber e ativar o overflow, senão ele força o pai a crescer e nada rola).
+  telaMetade: { flex: 1, padding: '32px 30px', overflow: 'hidden', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' },
+  telaListaRolavel: { flex: 1, overflowY: 'auto', minHeight: 0 },
   telaTituloColuna: { fontFamily: "'Playfair Display', serif", fontSize: 32.8, margin: 0, textTransform: 'uppercase', letterSpacing: 1 },
   hotspotSair: { position: 'fixed', bottom: 0, right: 0, width: 32, height: 32, zIndex: 45, cursor: 'default' },
   telaoBarraTopo: {
