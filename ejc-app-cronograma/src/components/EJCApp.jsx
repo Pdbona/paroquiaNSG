@@ -693,12 +693,14 @@ function comFimAteProximoDaMesmaEscala(lista) {
 }
 
 // Monta a timeline de tarefas de equipe de um dia específico, já com hora
-// resolvida e ordenada — injeta a Capela Mariana automaticamente em Sábado e
-// Domingo (mesma escala nos dois dias, cadastrada uma vez só).
+// resolvida e ordenada — injeta a Capela Mariana automaticamente só no
+// Sábado (28/08/2026, a pedido do Pablo: a escala de Capela Mariana não
+// tem mais plantão no Domingo — antes a mesma escala se aplicava também
+// ao Domingo).
 function tarefasEquipeDoDia(tarefasEquipe, capelaMariana, cronograma, dia) {
   const cronogramaPorId = new Map(cronograma.map((i) => [i.id, i]));
   const doDia = (tarefasEquipe || []).filter((t) => t.dia === dia);
-  const capelaAplicavel = dia === '2026-08-29' || dia === '2026-08-30';
+  const capelaAplicavel = dia === '2026-08-29';
   const capelaComoTarefas = capelaAplicavel
     ? (capelaMariana || []).map((c) => ({
         id: `${c.id}-${dia}`,
@@ -3776,7 +3778,8 @@ function AbaEquipes({ equipes, servos, onSalvar, onExcluir, cores }) {
 // Aba Cadastro > Encontro > Escalas — Vigília, Capela Mariana e Almoço/Jantar.
 // Tudo entra aqui como tarefasEquipe (mesma coleção do cronograma, origem
 // diferente), exceto Capela Mariana, que fica numa coleção própria porque a
-// mesma escala se aplica automaticamente a Sábado E Domingo.
+// mesma escala se aplica automaticamente só ao Sábado (28/08/2026: deixou
+// de valer pro Domingo, a pedido do Pablo).
 // ============================================================================
 function AbaEscalas({ encontro, onSalvarPessoa, onExcluirPessoa, cores }) {
   const [sub, setSub] = useState('vigilia');
@@ -3906,9 +3909,10 @@ function AbaEscalaPorDia({ titulo, origem, tarefaPadrao, tarefasEquipe, equipes,
   );
 }
 
-// Capela Mariana — coleção própria (sem "dia"), aplicada automaticamente a
-// Sábado e Domingo. "Encontristas" aparece como opção especial: não é uma
-// equipe de servo, é o próprio momento deles na Capela.
+// Capela Mariana — coleção própria (sem "dia"), aplicada automaticamente só
+// ao Sábado (28/08/2026: sem Domingo, a pedido do Pablo). "Encontristas"
+// aparece como opção especial: não é uma equipe de servo, é o próprio
+// momento deles na Capela.
 function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }) {
   const itens = [...capelaMariana].sort((a, b) => horaParaMin(a.hora) - horaParaMin(b.hora));
   const [novo, setNovo] = useState({ hora: '', equipeNome: '' });
@@ -3922,7 +3926,7 @@ function AbaCapelaMariana({ capelaMariana, equipes, onSalvar, onExcluir, cores }
   return (
     <div>
       <h3 style={{ marginTop: 0, marginBottom: 4 }}>Capela Mariana</h3>
-      <p style={{ fontSize: 15.8, opacity: 0.7, marginTop: 0 }}>Escala única — aplicada automaticamente ao Sábado e ao Domingo.</p>
+      <p style={{ fontSize: 15.8, opacity: 0.7, marginTop: 0 }}>Escala única — aplicada automaticamente ao Sábado.</p>
       {itens.length === 0 && <p style={{ fontSize: 15.8, opacity: 0.6 }}>Nenhum plantão cadastrado ainda.</p>}
       {itens.map((c) => (
         <LinhaEscalaEditavel
